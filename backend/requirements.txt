@@ -3,4 +3,5 @@ uvicorn[standard]==0.29.0
 SQLAlchemy==2.0.25
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-pydantic==1.10.14
+pydantic>=2
+pydantic-settings>=2.0.0

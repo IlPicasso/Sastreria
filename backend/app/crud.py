@@ -143,8 +143,8 @@ def _measurement_collections_to_models(
 ) -> List[models.CustomerMeasurement]:
     result: List[models.CustomerMeasurement] = []
     for measurement in measurements:
-        if isinstance(measurement, dict):
-            measurement = schemas.CustomerMeasurementCreate(**measurement)
+        if not isinstance(measurement, schemas.CustomerMeasurementCreate):
+            measurement = schemas.CustomerMeasurementCreate.model_validate(measurement)
         db_measurement = models.CustomerMeasurement(
             customer_id=customer_id,
             title=measurement.name,
@@ -199,7 +199,7 @@ def create_customer(db: Session, customer_in: schemas.CustomerCreate) -> models.
 def update_customer(
     db: Session, db_customer: models.Customer, customer_update: schemas.CustomerUpdate
 ) -> models.Customer:
-    data = customer_update.dict(exclude_unset=True)
+    data = customer_update.model_dump(exclude_unset=True)
     measurements_payload = data.pop("measurements", None)
     for field, value in data.items():
         setattr(db_customer, field, value)
@@ -222,7 +222,12 @@ def delete_customer(db: Session, db_customer: models.Customer) -> None:
 # Order operations ----------------------------------------------------------
 
 def _measurements_to_dicts(measurements: Iterable[schemas.MeasurementItem]):
-    return [measurement.dict() for measurement in measurements]
+    result = []
+    for measurement in measurements:
+        if not isinstance(measurement, schemas.MeasurementItem):
+            measurement = schemas.MeasurementItem.model_validate(measurement)
+        result.append(measurement.model_dump())
+    return result
 
 
 def create_order(db: Session, order_in: schemas.OrderCreate) -> models.Order:
@@ -291,7 +296,7 @@ def search_orders(
 
 
 def update_order(db: Session, db_order: models.Order, order_update: schemas.OrderUpdate) -> models.Order:
-    data = order_update.dict(exclude_unset=True)
+    data = order_update.model_dump(exclude_unset=True)
     if "measurements" in data and data["measurements"] is not None:
         data["measurements"] = _measurements_to_dicts(data["measurements"])
     for field, value in data.items():

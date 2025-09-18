@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from .models import OrderStatus, UserRole
 
@@ -35,11 +35,9 @@ class CustomerMeasurementUpdate(CustomerMeasurementBase):
 
 class CustomerMeasurementRead(CustomerMeasurementBase):
     id: int
-    name: str = Field(..., alias="title")
+    name: str = Field(..., validation_alias=AliasChoices("title", "name"))
 
-    class Config:
-        orm_mode = True
-        allow_population_by_field_name = True
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class CustomerBase(BaseModel):
@@ -62,8 +60,7 @@ class CustomerUpdate(BaseModel):
 class CustomerSummary(CustomerBase):
     id: int
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CustomerRead(CustomerSummary):
@@ -92,8 +89,7 @@ class UserUpdate(BaseModel):
 class UserOut(UserBase):
     id: int
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class OrderBase(BaseModel):
@@ -132,8 +128,7 @@ class OrderPublic(BaseModel):
     updated_at: datetime
     measurements: List[MeasurementItem] = Field(default_factory=list)
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class OrderRead(OrderPublic):
@@ -160,5 +155,4 @@ class AuditLogRead(BaseModel):
     after: Optional[Dict[str, Any]] = None
     actor: Optional[UserOut]
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
