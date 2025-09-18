@@ -248,7 +248,7 @@ def create_order_endpoint(
     customer = crud.get_customer(db, order_in.customer_id)
     if not customer:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente no encontrado")
-    order_data = order_in.dict()
+    order_data = order_in.model_dump()
     if not order_data.get("customer_name"):
         order_data["customer_name"] = customer.full_name
     if not order_data.get("customer_document"):
@@ -290,7 +290,7 @@ def update_order_endpoint(
     order = crud.get_order(db, order_id)
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Orden no encontrada")
-    update_data = order_update.dict(exclude_unset=True)
+    update_data = order_update.model_dump(exclude_unset=True)
     if "customer_id" in update_data and update_data["customer_id"] != order.customer_id:
         new_customer = crud.get_customer(db, update_data["customer_id"])
         if not new_customer:
