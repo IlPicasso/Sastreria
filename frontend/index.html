@@ -21,13 +21,18 @@
       <section id="client-view" class="view active">
         <div class="card">
           <h2>Consulta el estado de tu orden</h2>
-          <p>Ingresa el número de la orden proporcionado por la sastrería.</p>
+          <p>Ingresa el número de orden o la cédula con la que registraste tu pedido.</p>
           <form id="orderLookupForm" class="form-grid">
-            <label for="orderNumber">Número de orden</label>
-            <div class="input-group">
-              <input type="text" id="orderNumber" required placeholder="Ej. BAT-00123" />
-              <button type="submit">Buscar</button>
+            <div class="form-row">
+              <label for="orderNumber">Número de orden</label>
+              <input type="text" id="orderNumber" placeholder="Ej. BAT-00123" />
             </div>
+            <div class="form-row">
+              <label for="customerDocument">Cédula o identificación</label>
+              <input type="text" id="customerDocument" placeholder="Ej. 0912345678" />
+            </div>
+            <p class="muted small">Ingresa al menos uno de los campos para realizar la búsqueda.</p>
+            <button type="submit" class="primary">Buscar</button>
           </form>
           <div id="orderStatusResult" class="order-result hidden"></div>
         </div>
@@ -36,7 +41,7 @@
       <section id="staff-view" class="view">
         <div id="staffLogin" class="card">
           <h2>Acceso de personal</h2>
-          <p>Autentícate para gestionar las órdenes y clientes.</p>
+          <p>Autentícate para gestionar las órdenes, clientes y registros.</p>
           <form id="staffLoginForm" class="form-grid">
             <label for="username">Usuario</label>
             <input type="text" id="username" required />
@@ -48,7 +53,7 @@
 
         <div id="staffDashboard" class="hidden">
           <div class="dashboard-header">
-            <h2>Panel de órdenes</h2>
+            <h2>Panel administrativo</h2>
             <div class="user-info">
               Sesión iniciada como <span id="currentUserName"></span>
               (<span id="currentUserRole"></span>)
@@ -56,12 +61,95 @@
             </div>
           </div>
 
+          <section class="card" id="customersCard">
+            <h3>Gestión de clientes</h3>
+            <div class="customer-layout">
+              <div class="customer-column">
+                <h4>Registrar cliente</h4>
+                <form id="createCustomerForm" class="form-grid">
+                  <div class="form-row">
+                    <label for="customerFullName">Nombre completo</label>
+                    <input type="text" id="customerFullName" required />
+                  </div>
+                  <div class="form-row">
+                    <label for="customerDocumentInput">Cédula o identificación</label>
+                    <input type="text" id="customerDocumentInput" required />
+                  </div>
+                  <div class="form-row">
+                    <label for="customerPhone">Teléfono</label>
+                    <input type="text" id="customerPhone" placeholder="Número de contacto" />
+                  </div>
+                  <div class="form-row">
+                    <label>Conjuntos de medidas</label>
+                    <div id="customerMeasurementsContainer" class="measurement-set-list"></div>
+                    <button type="button" id="addCustomerMeasurementSet" class="secondary">Agregar conjunto</button>
+                  </div>
+                  <button type="submit" class="primary">Guardar cliente</button>
+                </form>
+              </div>
+
+              <div class="customer-column">
+                <h4>Clientes registrados</h4>
+                <div class="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Nombre</th>
+                        <th>Documento</th>
+                        <th>Teléfono</th>
+                        <th>Medidas</th>
+                        <th>Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody id="customersTableBody"></tbody>
+                  </table>
+                </div>
+                <div id="customerDetail" class="customer-detail hidden">
+                  <h4>Detalle del cliente</h4>
+                  <form id="updateCustomerForm" class="form-grid">
+                    <div class="form-row">
+                      <label for="updateCustomerName">Nombre completo</label>
+                      <input type="text" id="updateCustomerName" required />
+                    </div>
+                    <div class="form-row">
+                      <label for="updateCustomerDocument">Cédula o identificación</label>
+                      <input type="text" id="updateCustomerDocument" required />
+                    </div>
+                    <div class="form-row">
+                      <label for="updateCustomerPhone">Teléfono</label>
+                      <input type="text" id="updateCustomerPhone" />
+                    </div>
+                    <div class="form-row">
+                      <label>Conjuntos de medidas</label>
+                      <div id="updateCustomerMeasurementsContainer" class="measurement-set-list"></div>
+                      <button type="button" id="addUpdateCustomerMeasurementSet" class="secondary">Agregar conjunto</button>
+                    </div>
+                    <div class="button-row">
+                      <button type="submit" class="primary">Guardar cambios</button>
+                      <button type="button" id="deleteCustomerButton" class="danger">Eliminar cliente</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <section class="card">
             <h3>Crear nueva orden</h3>
             <form id="createOrderForm" class="form-grid">
               <div class="form-row">
                 <label for="newOrderNumber">Número de orden</label>
                 <input type="text" id="newOrderNumber" required />
+              </div>
+              <div class="form-row">
+                <label for="orderCustomerSelect">Cliente</label>
+                <select id="orderCustomerSelect" required>
+                  <option value="">Selecciona un cliente</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label for="newCustomerDocument">Documento</label>
+                <input type="text" id="newCustomerDocument" readonly />
               </div>
               <div class="form-row">
                 <label for="newCustomerName">Nombre del cliente</label>
@@ -76,13 +164,19 @@
                 <select id="newOrderStatus"></select>
               </div>
               <div class="form-row">
-                <label for="newOrderNotes">Notas</label>
-                <textarea id="newOrderNotes" rows="2" placeholder="Detalles adicionales"></textarea>
+                <label>Medidas guardadas del cliente</label>
+                <div id="customerMeasurementOptions" class="measurement-option-list muted">
+                  Selecciona un cliente para ver sus medidas guardadas.
+                </div>
               </div>
               <div class="form-row">
-                <label>Medidas del cliente</label>
+                <label>Medidas de la orden</label>
                 <div id="measurementsList" class="measurement-list"></div>
                 <button type="button" id="addMeasurementButton" class="secondary">Agregar medida</button>
+              </div>
+              <div class="form-row">
+                <label for="newOrderNotes">Notas</label>
+                <textarea id="newOrderNotes" rows="2" placeholder="Detalles adicionales"></textarea>
               </div>
               <div class="form-row">
                 <label for="assignTailor">Asignar a sastre</label>
@@ -102,6 +196,7 @@
                   <tr>
                     <th>Orden</th>
                     <th>Cliente</th>
+                    <th>Documento</th>
                     <th>Contacto</th>
                     <th>Estado</th>
                     <th>Sastre</th>
@@ -111,6 +206,26 @@
                   </tr>
                 </thead>
                 <tbody id="ordersTableBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="card hidden" id="auditLogSection">
+            <h3>Bitácora de auditoría</h3>
+            <p class="muted small">Registros inmutables de las acciones realizadas por los usuarios.</p>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Usuario</th>
+                    <th>Acción</th>
+                    <th>Entidad</th>
+                    <th>Antes</th>
+                    <th>Después</th>
+                  </tr>
+                </thead>
+                <tbody id="auditLogTableBody"></tbody>
               </table>
             </div>
           </section>

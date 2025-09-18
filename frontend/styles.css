@@ -165,6 +165,27 @@ button.secondary:hover {
   border-style: solid;
 }
 
+button.danger {
+  background: var(--danger);
+  color: white;
+  border: none;
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+}
+
+button.danger:hover {
+  filter: brightness(0.9);
+}
+
+button.danger.ghost {
+  background: rgba(197, 48, 48, 0.1);
+  color: var(--danger);
+}
+
+button.danger.ghost:hover {
+  background: rgba(197, 48, 48, 0.2);
+}
+
 button.full-width {
   width: 100%;
   background: var(--primary);
@@ -225,9 +246,82 @@ button[disabled] {
   margin-bottom: 1.5rem;
 }
 
+.customer-layout {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.customer-column {
+  flex: 1 1 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.customer-detail {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  background: #f9fbfc;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
 .user-info {
   color: var(--muted);
   font-size: 0.95rem;
+}
+
+.measurement-set-list,
+.measurement-option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.measurement-set {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  background: white;
+  box-shadow: 0 10px 25px rgba(15, 76, 92, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.measurement-set-header,
+.measurement-option-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.measurement-option {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.measurement-option .measurement-tags {
+  margin-top: 0;
+}
+
+.measurement-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
 }
 
 .table-wrapper {
@@ -252,6 +346,12 @@ th {
   background: rgba(31, 122, 140, 0.08);
 }
 
+.table-wrapper input,
+.table-wrapper textarea,
+.table-wrapper select {
+  width: 100%;
+}
+
 .measurement-list {
   display: flex;
   flex-direction: column;
@@ -270,14 +370,6 @@ th {
 
 .measurement-row button {
   border: none;
-  background: rgba(197, 48, 48, 0.1);
-  color: var(--danger);
-  padding: 0.4rem 0.6rem;
-  border-radius: 6px;
-}
-
-.measurement-row button:hover {
-  background: rgba(197, 48, 48, 0.2);
 }
 
 .tag {
@@ -291,8 +383,49 @@ th {
   font-size: 0.85rem;
 }
 
+.table-wrapper pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "Fira Code", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.8rem;
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 0.5rem;
+}
+
+.public-order-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.public-order-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.25rem;
+  background: white;
+  box-shadow: 0 10px 30px rgba(15, 76, 92, 0.08);
+}
+
+.public-order-card header {
+  margin-bottom: 0.75rem;
+}
+
+.public-order-card h3 {
+  margin: 0 0 0.4rem 0;
+}
+
+.public-order-card p {
+  margin: 0.3rem 0;
+}
+
 .muted {
   color: var(--muted);
+}
+
+.small {
+  font-size: 0.85rem;
 }
 
 .toast {
