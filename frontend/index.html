@@ -61,80 +61,104 @@
             </div>
           </div>
 
-          <section class="card" id="customersCard">
-            <h3>Gestión de clientes</h3>
-            <div class="customer-layout">
-              <div class="customer-column">
-                <h4>Registrar cliente</h4>
-                <form id="createCustomerForm" class="form-grid">
-                  <div class="form-row">
-                    <label for="customerFullName">Nombre completo</label>
-                    <input type="text" id="customerFullName" required />
-                  </div>
-                  <div class="form-row">
-                    <label for="customerDocumentInput">Cédula o identificación</label>
-                    <input type="text" id="customerDocumentInput" required />
-                  </div>
-                  <div class="form-row">
-                    <label for="customerPhone">Teléfono</label>
-                    <input type="text" id="customerPhone" placeholder="Número de contacto" />
-                  </div>
-                  <div class="form-row">
-                    <label>Conjuntos de medidas</label>
-                    <div id="customerMeasurementsContainer" class="measurement-set-list"></div>
-                    <button type="button" id="addCustomerMeasurementSet" class="secondary">Agregar conjunto</button>
-                  </div>
-                  <button type="submit" class="primary">Guardar cliente</button>
-                </form>
-              </div>
+          <nav class="dashboard-subnav">
+            <button class="dashboard-tab active" data-tab="customersListPanel">Clientes</button>
+            <button class="dashboard-tab" data-tab="customerRegisterPanel">Registrar cliente</button>
+            <button class="dashboard-tab" data-tab="orderCreatePanel">Crear orden</button>
+            <button class="dashboard-tab" data-tab="orderListPanel">Órdenes registradas</button>
+            <button
+              class="dashboard-tab admin-only hidden"
+              data-tab="auditLogPanel"
+              id="auditLogTabButton"
+            >
+              Bitácora de auditoría
+            </button>
+          </nav>
 
-              <div class="customer-column">
-                <h4>Clientes registrados</h4>
-                <div class="table-wrapper">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Nombre</th>
-                        <th>Documento</th>
-                        <th>Teléfono</th>
-                        <th>Medidas</th>
-                        <th>Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody id="customersTableBody"></tbody>
-                  </table>
-                </div>
-                <div id="customerDetail" class="customer-detail hidden">
-                  <h4>Detalle del cliente</h4>
-                  <form id="updateCustomerForm" class="form-grid">
-                    <div class="form-row">
-                      <label for="updateCustomerName">Nombre completo</label>
-                      <input type="text" id="updateCustomerName" required />
-                    </div>
-                    <div class="form-row">
-                      <label for="updateCustomerDocument">Cédula o identificación</label>
-                      <input type="text" id="updateCustomerDocument" required />
-                    </div>
-                    <div class="form-row">
-                      <label for="updateCustomerPhone">Teléfono</label>
-                      <input type="text" id="updateCustomerPhone" />
-                    </div>
-                    <div class="form-row">
-                      <label>Conjuntos de medidas</label>
-                      <div id="updateCustomerMeasurementsContainer" class="measurement-set-list"></div>
-                      <button type="button" id="addUpdateCustomerMeasurementSet" class="secondary">Agregar conjunto</button>
-                    </div>
-                    <div class="button-row">
-                      <button type="submit" class="primary">Guardar cambios</button>
-                      <button type="button" id="deleteCustomerButton" class="danger">Eliminar cliente</button>
-                    </div>
-                  </form>
-                </div>
+          <section class="card dashboard-panel" id="customersListPanel">
+            <header class="panel-header">
+              <div>
+                <h3>Clientes registrados</h3>
+                <p class="muted small">Consulta, busca y administra los clientes existentes.</p>
               </div>
+              <form id="customerSearchForm" class="search-form">
+                <input
+                  type="search"
+                  id="customerSearchInput"
+                  placeholder="Buscar por nombre o identificación"
+                />
+                <button type="submit" class="secondary small">Buscar</button>
+                <button type="button" id="customerSearchClear" class="ghost-button small">Limpiar</button>
+              </form>
+            </header>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Documento</th>
+                    <th>Teléfono</th>
+                    <th>Medidas</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="customersTableBody"></tbody>
+              </table>
+            </div>
+            <div id="customerDetail" class="customer-detail hidden">
+              <h4>Detalle del cliente</h4>
+              <form id="updateCustomerForm" class="form-grid">
+                <div class="form-row">
+                  <label for="updateCustomerName">Nombre completo</label>
+                  <input type="text" id="updateCustomerName" required />
+                </div>
+                <div class="form-row">
+                  <label for="updateCustomerDocument">Cédula o identificación</label>
+                  <input type="text" id="updateCustomerDocument" required />
+                </div>
+                <div class="form-row">
+                  <label for="updateCustomerPhone">Teléfono</label>
+                  <input type="text" id="updateCustomerPhone" />
+                </div>
+                <div class="form-row">
+                  <label>Conjuntos de medidas</label>
+                  <div id="updateCustomerMeasurementsContainer" class="measurement-set-list"></div>
+                  <button type="button" id="addUpdateCustomerMeasurementSet" class="secondary">Agregar conjunto</button>
+                </div>
+                <div class="button-row">
+                  <button type="submit" class="primary">Guardar cambios</button>
+                  <button type="button" id="deleteCustomerButton" class="danger">Eliminar cliente</button>
+                </div>
+              </form>
             </div>
           </section>
 
-          <section class="card">
+          <section class="card dashboard-panel hidden" id="customerRegisterPanel">
+            <h3>Registrar nuevo cliente</h3>
+            <p class="muted small">Completa la información y agrega conjuntos de medidas reutilizables.</p>
+            <form id="createCustomerForm" class="form-grid">
+              <div class="form-row">
+                <label for="customerFullName">Nombre completo</label>
+                <input type="text" id="customerFullName" required />
+              </div>
+              <div class="form-row">
+                <label for="customerDocumentInput">Cédula o identificación</label>
+                <input type="text" id="customerDocumentInput" required />
+              </div>
+              <div class="form-row">
+                <label for="customerPhone">Teléfono</label>
+                <input type="text" id="customerPhone" placeholder="Número de contacto" />
+              </div>
+              <div class="form-row">
+                <label>Conjuntos de medidas</label>
+                <div id="customerMeasurementsContainer" class="measurement-set-list"></div>
+                <button type="button" id="addCustomerMeasurementSet" class="secondary">Agregar conjunto</button>
+              </div>
+              <button type="submit" class="primary">Guardar cliente</button>
+            </form>
+          </section>
+
+          <section class="card dashboard-panel hidden" id="orderCreatePanel">
             <h3>Crear nueva orden</h3>
             <form id="createOrderForm" class="form-grid">
               <div class="form-row">
@@ -142,11 +166,22 @@
                 <input type="text" id="newOrderNumber" required />
               </div>
               <div class="form-row">
-                <label for="orderCustomerSelect">Cliente</label>
-                <select id="orderCustomerSelect" required>
-                  <option value="">Selecciona un cliente</option>
-                </select>
+                <label for="orderCustomerSearch">Buscar cliente</label>
+                <div class="search-field">
+                  <div class="search-input-wrapper">
+                    <input
+                      type="search"
+                      id="orderCustomerSearch"
+                      placeholder="Escribe nombre o identificación"
+                      autocomplete="off"
+                    />
+                    <div id="orderCustomerResults" class="search-results hidden"></div>
+                  </div>
+                  <button type="button" id="orderCustomerClear" class="ghost-button small hidden">Limpiar selección</button>
+                </div>
+                <p class="muted small">Selecciona un cliente para precargar sus datos y medidas guardadas.</p>
               </div>
+              <input type="hidden" id="orderCustomerId" />
               <div class="form-row">
                 <label for="newCustomerDocument">Documento</label>
                 <input type="text" id="newCustomerDocument" readonly />
@@ -158,6 +193,14 @@
               <div class="form-row">
                 <label for="newCustomerContact">Contacto del cliente</label>
                 <input type="text" id="newCustomerContact" placeholder="Teléfono o correo" />
+              </div>
+              <div class="form-row">
+                <label for="newOrderEntryDate">Fecha de ingreso</label>
+                <input type="date" id="newOrderEntryDate" required />
+              </div>
+              <div class="form-row">
+                <label for="newOrderDeliveryDate">Fecha de entrega</label>
+                <input type="date" id="newOrderDeliveryDate" />
               </div>
               <div class="form-row">
                 <label for="newOrderStatus">Estado inicial</label>
@@ -188,8 +231,11 @@
             </form>
           </section>
 
-          <section class="card">
+          <section class="card dashboard-panel hidden" id="orderListPanel">
             <h3>Órdenes registradas</h3>
+            <p class="muted small">
+              Las órdenes pendientes se muestran primero y se ordenan por la fecha de entrega más próxima.
+            </p>
             <div class="table-wrapper">
               <table>
                 <thead>
@@ -198,6 +244,8 @@
                     <th>Cliente</th>
                     <th>Documento</th>
                     <th>Contacto</th>
+                    <th>Ingreso</th>
+                    <th>Entrega</th>
                     <th>Estado</th>
                     <th>Sastre</th>
                     <th>Medidas</th>
@@ -210,7 +258,7 @@
             </div>
           </section>
 
-          <section class="card hidden" id="auditLogSection">
+          <section class="card dashboard-panel hidden" id="auditLogPanel">
             <h3>Bitácora de auditoría</h3>
             <p class="muted small">Registros inmutables de las acciones realizadas por los usuarios.</p>
             <div class="table-wrapper">
