@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Portal de Sastrería</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="top-bar">
+      <div class="container">
+        <h1>Portal de Sastrería</h1>
+        <nav class="main-nav">
+          <button class="nav-button active" data-view="client-view">Clientes</button>
+          <button class="nav-button" data-view="staff-view">Personal</button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container">
+      <section id="client-view" class="view active">
+        <div class="card">
+          <h2>Consulta el estado de tu orden</h2>
+          <p>Ingresa el número de la orden proporcionado por la sastrería.</p>
+          <form id="orderLookupForm" class="form-grid">
+            <label for="orderNumber">Número de orden</label>
+            <div class="input-group">
+              <input type="text" id="orderNumber" required placeholder="Ej. BAT-00123" />
+              <button type="submit">Buscar</button>
+            </div>
+          </form>
+          <div id="orderStatusResult" class="order-result hidden"></div>
+        </div>
+      </section>
+
+      <section id="staff-view" class="view">
+        <div id="staffLogin" class="card">
+          <h2>Acceso de personal</h2>
+          <p>Autentícate para gestionar las órdenes y clientes.</p>
+          <form id="staffLoginForm" class="form-grid">
+            <label for="username">Usuario</label>
+            <input type="text" id="username" required />
+            <label for="password">Contraseña</label>
+            <input type="password" id="password" required />
+            <button type="submit" class="full-width">Ingresar</button>
+          </form>
+        </div>
+
+        <div id="staffDashboard" class="hidden">
+          <div class="dashboard-header">
+            <h2>Panel de órdenes</h2>
+            <div class="user-info">
+              Sesión iniciada como <span id="currentUserName"></span>
+              (<span id="currentUserRole"></span>)
+              <button id="logoutButton" class="link-button">Cerrar sesión</button>
+            </div>
+          </div>
+
+          <section class="card">
+            <h3>Crear nueva orden</h3>
+            <form id="createOrderForm" class="form-grid">
+              <div class="form-row">
+                <label for="newOrderNumber">Número de orden</label>
+                <input type="text" id="newOrderNumber" required />
+              </div>
+              <div class="form-row">
+                <label for="newCustomerName">Nombre del cliente</label>
+                <input type="text" id="newCustomerName" required />
+              </div>
+              <div class="form-row">
+                <label for="newCustomerContact">Contacto del cliente</label>
+                <input type="text" id="newCustomerContact" placeholder="Teléfono o correo" />
+              </div>
+              <div class="form-row">
+                <label for="newOrderStatus">Estado inicial</label>
+                <select id="newOrderStatus"></select>
+              </div>
+              <div class="form-row">
+                <label for="newOrderNotes">Notas</label>
+                <textarea id="newOrderNotes" rows="2" placeholder="Detalles adicionales"></textarea>
+              </div>
+              <div class="form-row">
+                <label>Medidas del cliente</label>
+                <div id="measurementsList" class="measurement-list"></div>
+                <button type="button" id="addMeasurementButton" class="secondary">Agregar medida</button>
+              </div>
+              <div class="form-row">
+                <label for="assignTailor">Asignar a sastre</label>
+                <select id="assignTailor">
+                  <option value="">Sin asignar</option>
+                </select>
+              </div>
+              <button type="submit" class="primary">Guardar orden</button>
+            </form>
+          </section>
+
+          <section class="card">
+            <h3>Órdenes registradas</h3>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Orden</th>
+                    <th>Cliente</th>
+                    <th>Contacto</th>
+                    <th>Estado</th>
+                    <th>Sastre</th>
+                    <th>Medidas</th>
+                    <th>Notas</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="ordersTableBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <footer class="container footer">
+      <small>© <span id="currentYear"></span> Portal de Sastrería. Todos los derechos reservados.</small>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>
