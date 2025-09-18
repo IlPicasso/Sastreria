@@ -6,17 +6,33 @@ const state = {
   user: null,
   tailors: [],
   orders: [],
+  customers: [],
+  auditLogs: [],
+  selectedCustomerId: null,
 };
 
 const views = document.querySelectorAll('.view');
 const navButtons = document.querySelectorAll('.nav-button');
 const orderLookupForm = document.getElementById('orderLookupForm');
+const orderNumberInput = document.getElementById('orderNumber');
+const orderDocumentInput = document.getElementById('customerDocument');
 const orderResultContainer = document.getElementById('orderStatusResult');
 const staffLoginForm = document.getElementById('staffLoginForm');
 const staffDashboard = document.getElementById('staffDashboard');
 const staffLoginCard = document.getElementById('staffLogin');
 const logoutButton = document.getElementById('logoutButton');
 const createOrderForm = document.getElementById('createOrderForm');
+const createCustomerForm = document.getElementById('createCustomerForm');
+const updateCustomerForm = document.getElementById('updateCustomerForm');
+const customersTableBody = document.getElementById('customersTableBody');
+const customerDetail = document.getElementById('customerDetail');
+const customerMeasurementsContainer = document.getElementById('customerMeasurementsContainer');
+const updateCustomerMeasurementsContainer = document.getElementById('updateCustomerMeasurementsContainer');
+const addCustomerMeasurementSetButton = document.getElementById('addCustomerMeasurementSet');
+const addUpdateCustomerMeasurementSetButton = document.getElementById('addUpdateCustomerMeasurementSet');
+const deleteCustomerButton = document.getElementById('deleteCustomerButton');
+const orderCustomerSelect = document.getElementById('orderCustomerSelect');
+const customerMeasurementOptions = document.getElementById('customerMeasurementOptions');
 const ordersTableBody = document.getElementById('ordersTableBody');
 const measurementsList = document.getElementById('measurementsList');
 const addMeasurementButton = document.getElementById('addMeasurementButton');
@@ -26,6 +42,8 @@ const toastElement = document.getElementById('toast');
 const currentYearElement = document.getElementById('currentYear');
 const currentUserNameElement = document.getElementById('currentUserName');
 const currentUserRoleElement = document.getElementById('currentUserRole');
+const auditLogSection = document.getElementById('auditLogSection');
+const auditLogTableBody = document.getElementById('auditLogTableBody');
 
 const ROLE_LABELS = {
   administrador: 'Administrador',
@@ -108,29 +126,41 @@ async function apiFetch(path, { method = 'GET', body, headers = {}, auth = true 
   return data;
 }
 
-function displayOrderResult(order) {
+function renderPublicOrderResults(orders) {
   if (!orderResultContainer) return;
   orderResultContainer.classList.remove('hidden');
-  const measurements = order.measurements?.length
-    ? `<div class="measurement-tags">${order.measurements
-        .map((item) => `<span class="tag">${item.nombre}: ${item.valor}</span>`)
-        .join('')}</div>`
-    : '<p class="muted">No hay medidas registradas.</p>';
+  if (!orders?.length) {
+    orderResultContainer.innerHTML = '<p>No se encontraron órdenes con los datos ingresados.</p>';
+    return;
+  }
+
+  const listHtml = orders
+    .map((order) => {
+      const measurements = order.measurements?.length
+        ? `<div class="measurement-tags">${order.measurements
+            .map((item) => `<span class="tag">${item.nombre}: ${item.valor}</span>`)
+            .join('')}</div>`
+        : '<p class="muted">No hay medidas registradas.</p>';
+      return `
+        <article class="public-order-card">
+          <header>
+            <h3>Orden ${order.order_number}</h3>
+            <p><strong>Cliente:</strong> ${order.customer_name}</p>
+            ${order.customer_document ? `<p><strong>Documento:</strong> ${order.customer_document}</p>` : ''}
+          </header>
+          <p><strong>Estado:</strong> ${order.status}</p>
+          ${order.notes ? `<p><strong>Notas:</strong> ${order.notes}</p>` : ''}
+          <p><strong>Última actualización:</strong> ${formatDate(order.updated_at)}</p>
+          ${measurements}
+        </article>
+      `;
+    })
+    .join('');
 
   orderResultContainer.innerHTML = `
-    <h3>Orden ${order.order_number}</h3>
-    <p><strong>Cliente:</strong> ${order.customer_name}</p>
-    <p><strong>Estado:</strong> ${order.status}</p>
-    ${order.notes ? `<p><strong>Notas:</strong> ${order.notes}</p>` : ''}
-    <p><strong>Última actualización:</strong> ${formatDate(order.updated_at)}</p>
-    ${measurements}
+    <h3>Resultados (${orders.length})</h3>
+    <div class="public-order-list">${listHtml}</div>
   `;
-}
-
-function displayOrderNotFound(orderNumber) {
-  if (!orderResultContainer) return;
-  orderResultContainer.classList.remove('hidden');
-  orderResultContainer.innerHTML = `<p>No se encontró información para la orden <strong>${orderNumber}</strong>. Verifica el número ingresado.</p>`;
 }
 
 function clearOrderResult() {
@@ -142,15 +172,21 @@ function clearOrderResult() {
 if (orderLookupForm) {
   orderLookupForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const input = document.getElementById('orderNumber');
-    if (!input) return;
-    const orderNumber = input.value.trim();
-    if (!orderNumber) return;
+    const orderNumber = orderNumberInput?.value.trim();
+    const customerDocument = orderDocumentInput?.value.trim();
+    if (!orderNumber && !customerDocument) {
+      showToast('Ingresa el número de orden o la cédula para continuar.', 'error');
+      return;
+    }
+    const params = new URLSearchParams();
+    if (orderNumber) params.append('order_number', orderNumber);
+    if (customerDocument) params.append('customer_document', customerDocument);
     try {
-      const order = await apiFetch(`/public/orders/${encodeURIComponent(orderNumber)}`, { auth: false });
-      displayOrderResult(order);
+      const orders = await apiFetch(`/public/orders?${params.toString()}`, { auth: false });
+      renderPublicOrderResults(orders);
     } catch (error) {
-      displayOrderNotFound(orderNumber);
+      orderResultContainer.classList.remove('hidden');
+      orderResultContainer.innerHTML = `<p>${error.message}</p>`;
       showToast(error.message, 'error');
     }
   });
@@ -159,11 +195,11 @@ if (orderLookupForm) {
 function populateStatusSelect(selectElement, selectedValue = '') {
   if (!selectElement) return;
   selectElement.innerHTML = '';
-  state.statuses.forEach((status) => {
+  state.statuses.forEach((statusValue) => {
     const option = document.createElement('option');
-    option.value = status;
-    option.textContent = status;
-    if (selectedValue && selectedValue === status) {
+    option.value = statusValue;
+    option.textContent = statusValue;
+    if (selectedValue && selectedValue === statusValue) {
       option.selected = true;
     }
     selectElement.appendChild(option);
@@ -188,6 +224,23 @@ function populateTailorSelect(selectElement, selectedId = '') {
   });
 }
 
+function populateCustomerSelect(selectElement, selectedId = '') {
+  if (!selectElement) return;
+  selectElement.innerHTML = '';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Selecciona un cliente';
+  selectElement.appendChild(placeholder);
+  state.customers.forEach((customer) => {
+    const option = document.createElement('option');
+    option.value = String(customer.id);
+    option.textContent = `${customer.full_name} (${customer.document_id})`;
+    if (selectedId && String(selectedId) === String(customer.id)) {
+      option.selected = true;
+    }
+    selectElement.appendChild(option);
+  });
+}
 function addMeasurementRow(data = { nombre: '', valor: '' }) {
   const row = document.createElement('div');
   row.className = 'measurement-row';
@@ -206,6 +259,7 @@ function addMeasurementRow(data = { nombre: '', valor: '' }) {
 
   const removeButton = document.createElement('button');
   removeButton.type = 'button';
+  removeButton.className = 'danger ghost';
   removeButton.textContent = 'Eliminar';
   removeButton.addEventListener('click', () => {
     row.remove();
@@ -228,6 +282,105 @@ if (addMeasurementButton) {
   addMeasurementButton.addEventListener('click', () => addMeasurementRow());
 }
 
+function addMeasurementRowToList(listElement, data = { nombre: '', valor: '' }) {
+  const row = document.createElement('div');
+  row.className = 'measurement-row';
+
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.placeholder = 'Ej. Pecho';
+  nameInput.value = data.nombre || '';
+  nameInput.dataset.field = 'nombre';
+
+  const valueInput = document.createElement('input');
+  valueInput.type = 'text';
+  valueInput.placeholder = 'Ej. 98 cm';
+  valueInput.value = data.valor || '';
+  valueInput.dataset.field = 'valor';
+
+  const removeButton = document.createElement('button');
+  removeButton.type = 'button';
+  removeButton.className = 'danger ghost';
+  removeButton.textContent = 'Eliminar';
+  removeButton.addEventListener('click', () => {
+    row.remove();
+    if (listElement.children.length === 0) {
+      addMeasurementRowToList(listElement);
+    }
+  });
+
+  row.appendChild(nameInput);
+  row.appendChild(valueInput);
+  row.appendChild(removeButton);
+  listElement.appendChild(row);
+}
+
+function createMeasurementSetBlock(container, data = { name: '', measurements: [] }) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'measurement-set';
+
+  const header = document.createElement('div');
+  header.className = 'measurement-set-header';
+
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.placeholder = 'Nombre del conjunto (ej. Traje azul)';
+  nameInput.value = data.name || '';
+  nameInput.dataset.field = 'name';
+
+  const removeButton = document.createElement('button');
+  removeButton.type = 'button';
+  removeButton.className = 'danger ghost';
+  removeButton.textContent = 'Eliminar conjunto';
+  removeButton.addEventListener('click', () => {
+    wrapper.remove();
+  });
+
+  header.appendChild(nameInput);
+  header.appendChild(removeButton);
+
+  const measurementList = document.createElement('div');
+  measurementList.className = 'measurement-list';
+
+  const addButton = document.createElement('button');
+  addButton.type = 'button';
+  addButton.className = 'secondary small';
+  addButton.textContent = 'Agregar medida';
+  addButton.addEventListener('click', () => addMeasurementRowToList(measurementList));
+
+  wrapper.appendChild(header);
+  wrapper.appendChild(measurementList);
+  wrapper.appendChild(addButton);
+  container.appendChild(wrapper);
+
+  if (data.measurements?.length) {
+    data.measurements.forEach((item) => addMeasurementRowToList(measurementList, item));
+  } else {
+    addMeasurementRowToList(measurementList);
+  }
+}
+
+function collectMeasurementSets(container) {
+  if (!container) return [];
+  return Array.from(container.querySelectorAll('.measurement-set'))
+    .map((setElement) => {
+      const nameInput = setElement.querySelector('input[data-field="name"]');
+      const name = nameInput?.value.trim();
+      const measurements = Array.from(setElement.querySelectorAll('.measurement-row'))
+        .map((row) => {
+          const nombre = row.querySelector('input[data-field="nombre"]').value.trim();
+          const valor = row.querySelector('input[data-field="valor"]').value.trim();
+          return nombre && valor ? { nombre, valor } : null;
+        })
+        .filter(Boolean);
+      if (!name) {
+        return null;
+      }
+      return { name, measurements };
+    })
+    .filter(Boolean);
+}
+
 function collectMeasurements() {
   if (!measurementsList) return [];
   return Array.from(measurementsList.querySelectorAll('.measurement-row'))
@@ -244,10 +397,88 @@ function resetCreateOrderForm() {
   createOrderForm.reset();
   populateStatusSelect(statusSelect);
   populateTailorSelect(assignTailorSelect);
+  populateCustomerSelect(orderCustomerSelect);
+  const documentInput = document.getElementById('newCustomerDocument');
+  const nameInput = document.getElementById('newCustomerName');
+  const contactInput = document.getElementById('newCustomerContact');
+  if (documentInput) documentInput.value = '';
+  if (nameInput) nameInput.value = '';
+  if (contactInput) contactInput.value = '';
   measurementsList.innerHTML = '';
   addMeasurementRow();
+  renderCustomerMeasurementOptions(null);
 }
 
+function resetCreateCustomerForm() {
+  if (!createCustomerForm) return;
+  createCustomerForm.reset();
+  if (customerMeasurementsContainer) {
+    customerMeasurementsContainer.innerHTML = '';
+    createMeasurementSetBlock(customerMeasurementsContainer);
+  }
+}
+
+function renderCustomerMeasurementOptions(customer) {
+  if (!customerMeasurementOptions) return;
+  if (!customer) {
+    customerMeasurementOptions.classList.add('muted');
+    customerMeasurementOptions.innerHTML = 'Selecciona un cliente para ver sus medidas guardadas.';
+    return;
+  }
+  if (!customer.measurements?.length) {
+    customerMeasurementOptions.classList.add('muted');
+    customerMeasurementOptions.innerHTML = 'El cliente no tiene medidas guardadas.';
+    return;
+  }
+  customerMeasurementOptions.classList.remove('muted');
+  customerMeasurementOptions.innerHTML = '';
+  customer.measurements.forEach((set) => {
+    const card = document.createElement('div');
+    card.className = 'measurement-option';
+
+    const header = document.createElement('div');
+    header.className = 'measurement-option-header';
+
+    const title = document.createElement('strong');
+    title.textContent = set.name;
+
+    const useButton = document.createElement('button');
+    useButton.type = 'button';
+    useButton.className = 'secondary small';
+    useButton.textContent = 'Usar en la orden';
+    useButton.addEventListener('click', () => {
+      measurementsList.innerHTML = '';
+      if (set.measurements?.length) {
+        set.measurements.forEach((item) => addMeasurementRow(item));
+      }
+      ensureMeasurementRow();
+      showToast(`Se aplicaron las medidas del conjunto "${set.name}".`, 'success');
+    });
+
+    header.appendChild(title);
+    header.appendChild(useButton);
+
+    const tags = document.createElement('div');
+    tags.className = 'measurement-tags';
+    if (set.measurements?.length) {
+      set.measurements.forEach((item) => {
+        const tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.textContent = `${item.nombre}: ${item.valor}`;
+        tags.appendChild(tag);
+      });
+    } else {
+      const empty = document.createElement('span');
+      empty.className = 'muted';
+      empty.textContent = 'Sin medidas registradas';
+      tags.appendChild(empty);
+    }
+
+    card.appendChild(header);
+    card.appendChild(tags);
+    customerMeasurementOptions.appendChild(card);
+  });
+}
 function updateUserInfo() {
   if (!state.user) return;
   if (currentUserNameElement) {
@@ -255,6 +486,38 @@ function updateUserInfo() {
   }
   if (currentUserRoleElement) {
     currentUserRoleElement.textContent = ROLE_LABELS[state.user.role] || state.user.role;
+  }
+  if (deleteCustomerButton) {
+    if (state.user.role === 'administrador') {
+      deleteCustomerButton.classList.remove('hidden');
+    } else {
+      deleteCustomerButton.classList.add('hidden');
+    }
+  }
+  if (auditLogSection) {
+    if (state.user.role === 'administrador') {
+      auditLogSection.classList.remove('hidden');
+    } else {
+      auditLogSection.classList.add('hidden');
+    }
+  }
+}
+
+function showDashboard() {
+  if (staffDashboard) {
+    staffDashboard.classList.remove('hidden');
+  }
+  if (staffLoginCard) {
+    staffLoginCard.classList.add('hidden');
+  }
+}
+
+function hideDashboard() {
+  if (staffDashboard) {
+    staffDashboard.classList.add('hidden');
+  }
+  if (staffLoginCard) {
+    staffLoginCard.classList.remove('hidden');
   }
 }
 
@@ -272,9 +535,16 @@ async function handleLogin(event) {
     });
     state.token = token.access_token;
     await loadCurrentUser();
+    updateUserInfo();
     await loadStatuses();
-    await Promise.all([loadTailors(), loadOrders()]);
+    await loadTailors();
+    await loadCustomers();
+    await loadOrders();
+    if (state.user?.role === 'administrador') {
+      await loadAuditLogs();
+    }
     showDashboard();
+    resetCreateCustomerForm();
     resetCreateOrderForm();
     showToast('Bienvenido, sesión iniciada.', 'success');
   } catch (error) {
@@ -310,27 +580,39 @@ async function loadOrders() {
   }
 }
 
+async function loadCustomers() {
+  if (!state.token) return;
+  try {
+    state.customers = await apiFetch('/customers');
+    renderCustomers();
+    populateCustomerSelect(orderCustomerSelect, state.selectedCustomerId);
+    if (state.selectedCustomerId) {
+      const selected = state.customers.find((customer) => customer.id === state.selectedCustomerId);
+      if (selected) {
+        populateCustomerDetail(selected);
+      } else {
+        clearCustomerDetail();
+      }
+    } else {
+      clearCustomerDetail();
+    }
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+}
+
+async function loadAuditLogs() {
+  if (!state.token || state.user?.role !== 'administrador') return;
+  try {
+    state.auditLogs = await apiFetch('/audit-logs');
+    renderAuditLogs();
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+}
+
 async function loadCurrentUser() {
   state.user = await apiFetch('/users/me');
-  updateUserInfo();
-}
-
-function showDashboard() {
-  if (staffDashboard) {
-    staffDashboard.classList.remove('hidden');
-  }
-  if (staffLoginCard) {
-    staffLoginCard.classList.add('hidden');
-  }
-}
-
-function hideDashboard() {
-  if (staffDashboard) {
-    staffDashboard.classList.add('hidden');
-  }
-  if (staffLoginCard) {
-    staffLoginCard.classList.remove('hidden');
-  }
 }
 
 function handleLogout(auto = false) {
@@ -338,11 +620,31 @@ function handleLogout(auto = false) {
   state.user = null;
   state.orders = [];
   state.tailors = [];
+  state.customers = [];
+  state.auditLogs = [];
+  state.selectedCustomerId = null;
   if (assignTailorSelect) {
     populateTailorSelect(assignTailorSelect);
   }
+  if (orderCustomerSelect) {
+    populateCustomerSelect(orderCustomerSelect);
+  }
   hideDashboard();
-  ordersTableBody.innerHTML = '';
+  if (ordersTableBody) {
+    ordersTableBody.innerHTML = '';
+  }
+  if (customersTableBody) {
+    customersTableBody.innerHTML = '';
+  }
+  if (auditLogTableBody) {
+    auditLogTableBody.innerHTML = '';
+  }
+  clearCustomerDetail();
+  resetCreateCustomerForm();
+  measurementsList.innerHTML = '';
+  ensureMeasurementRow();
+  renderCustomerMeasurementOptions(null);
+  clearOrderResult();
   if (auto) {
     showToast('La sesión ha expirado, vuelve a iniciar sesión.', 'error');
   }
@@ -358,16 +660,199 @@ if (logoutButton) {
     showToast('Sesión cerrada correctamente.', 'success');
   });
 }
+function renderCustomers() {
+  if (!customersTableBody) return;
+  customersTableBody.innerHTML = '';
+  if (!state.customers.length) {
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = 5;
+    cell.textContent = 'No hay clientes registrados aún.';
+    cell.className = 'muted';
+    row.appendChild(cell);
+    customersTableBody.appendChild(row);
+    return;
+  }
 
+  state.customers.forEach((customer) => {
+    const row = document.createElement('tr');
+
+    const nameCell = document.createElement('td');
+    nameCell.textContent = customer.full_name;
+
+    const documentCell = document.createElement('td');
+    documentCell.textContent = customer.document_id;
+
+    const phoneCell = document.createElement('td');
+    phoneCell.textContent = customer.phone || '—';
+
+    const measurementsCell = document.createElement('td');
+    measurementsCell.textContent = `${customer.measurements?.length || 0}`;
+
+    const actionsCell = document.createElement('td');
+    const viewButton = document.createElement('button');
+    viewButton.type = 'button';
+    viewButton.className = 'secondary';
+    viewButton.textContent = 'Ver detalle';
+    viewButton.addEventListener('click', () => {
+      populateCustomerDetail(customer);
+    });
+    actionsCell.appendChild(viewButton);
+
+    row.appendChild(nameCell);
+    row.appendChild(documentCell);
+    row.appendChild(phoneCell);
+    row.appendChild(measurementsCell);
+    row.appendChild(actionsCell);
+
+    customersTableBody.appendChild(row);
+  });
+}
+
+function populateCustomerDetail(customer) {
+  if (!customerDetail) return;
+  state.selectedCustomerId = customer.id;
+  customerDetail.classList.remove('hidden');
+  document.getElementById('updateCustomerName').value = customer.full_name;
+  document.getElementById('updateCustomerDocument').value = customer.document_id;
+  document.getElementById('updateCustomerPhone').value = customer.phone || '';
+  if (updateCustomerMeasurementsContainer) {
+    updateCustomerMeasurementsContainer.innerHTML = '';
+    if (customer.measurements?.length) {
+      customer.measurements.forEach((set) => {
+        createMeasurementSetBlock(updateCustomerMeasurementsContainer, set);
+      });
+    } else {
+      createMeasurementSetBlock(updateCustomerMeasurementsContainer);
+    }
+  }
+}
+
+function clearCustomerDetail() {
+  if (!customerDetail) return;
+  customerDetail.classList.add('hidden');
+  state.selectedCustomerId = null;
+  updateCustomerForm?.reset();
+  if (updateCustomerMeasurementsContainer) {
+    updateCustomerMeasurementsContainer.innerHTML = '';
+  }
+}
+
+if (addCustomerMeasurementSetButton) {
+  addCustomerMeasurementSetButton.addEventListener('click', () => {
+    createMeasurementSetBlock(customerMeasurementsContainer);
+  });
+}
+
+if (addUpdateCustomerMeasurementSetButton) {
+  addUpdateCustomerMeasurementSetButton.addEventListener('click', () => {
+    createMeasurementSetBlock(updateCustomerMeasurementsContainer);
+  });
+}
+
+if (createCustomerForm) {
+  createCustomerForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const fullName = document.getElementById('customerFullName').value.trim();
+    const documentId = document.getElementById('customerDocumentInput').value.trim();
+    const phone = document.getElementById('customerPhone').value.trim();
+    if (!fullName || !documentId) {
+      showToast('El nombre y la cédula del cliente son obligatorios.', 'error');
+      return;
+    }
+    const measurements = collectMeasurementSets(customerMeasurementsContainer);
+    const submitButton = createCustomerForm.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    try {
+      await apiFetch('/customers', {
+        method: 'POST',
+        body: {
+          full_name: fullName,
+          document_id: documentId,
+          phone: phone || null,
+          measurements,
+        },
+      });
+      await loadCustomers();
+      resetCreateCustomerForm();
+      showToast('Cliente registrado correctamente.', 'success');
+    } catch (error) {
+      showToast(error.message, 'error');
+    } finally {
+      submitButton.disabled = false;
+    }
+  });
+}
+
+if (updateCustomerForm) {
+  updateCustomerForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!state.selectedCustomerId) {
+      showToast('Selecciona un cliente para actualizar.', 'error');
+      return;
+    }
+    const fullName = document.getElementById('updateCustomerName').value.trim();
+    const documentId = document.getElementById('updateCustomerDocument').value.trim();
+    const phone = document.getElementById('updateCustomerPhone').value.trim();
+    const measurements = collectMeasurementSets(updateCustomerMeasurementsContainer);
+    const submitButton = updateCustomerForm.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    try {
+      await apiFetch(`/customers/${state.selectedCustomerId}`, {
+        method: 'PATCH',
+        body: {
+          full_name: fullName || null,
+          document_id: documentId || null,
+          phone: phone || null,
+          measurements,
+        },
+      });
+      await loadCustomers();
+      const refreshed = state.customers.find((customer) => customer.id === state.selectedCustomerId);
+      if (refreshed) {
+        populateCustomerDetail(refreshed);
+      }
+      showToast('Cliente actualizado correctamente.', 'success');
+    } catch (error) {
+      showToast(error.message, 'error');
+    } finally {
+      submitButton.disabled = false;
+    }
+  });
+}
+
+if (deleteCustomerButton) {
+  deleteCustomerButton.addEventListener('click', async () => {
+    if (!state.selectedCustomerId) return;
+    if (!confirm('¿Estás seguro de eliminar este cliente? Esta acción no se puede deshacer.')) {
+      return;
+    }
+    try {
+      await apiFetch(`/customers/${state.selectedCustomerId}`, { method: 'DELETE' });
+      showToast('Cliente eliminado correctamente.', 'success');
+      state.selectedCustomerId = null;
+      await loadCustomers();
+    } catch (error) {
+      showToast(error.message, 'error');
+    }
+  });
+}
 async function createOrder(event) {
   event.preventDefault();
   const newOrderNumber = document.getElementById('newOrderNumber').value.trim();
+  const selectedCustomerId = Number(orderCustomerSelect.value);
   const newCustomerName = document.getElementById('newCustomerName').value.trim();
+  const newCustomerDocument = document.getElementById('newCustomerDocument').value.trim();
   const newCustomerContact = document.getElementById('newCustomerContact').value.trim();
   const newOrderStatus = document.getElementById('newOrderStatus').value;
   const newOrderNotes = document.getElementById('newOrderNotes').value.trim();
   const assignedTailorId = assignTailorSelect.value ? Number(assignTailorSelect.value) : null;
   const measurements = collectMeasurements();
+
+  if (!selectedCustomerId) {
+    showToast('Selecciona un cliente para registrar la orden.', 'error');
+    return;
+  }
 
   const submitButton = createOrderForm.querySelector('button[type="submit"]');
   submitButton.disabled = true;
@@ -376,7 +861,9 @@ async function createOrder(event) {
       method: 'POST',
       body: {
         order_number: newOrderNumber,
-        customer_name: newCustomerName,
+        customer_id: selectedCustomerId,
+        customer_name: newCustomerName || null,
+        customer_document: newCustomerDocument || null,
         customer_contact: newCustomerContact || null,
         status: newOrderStatus,
         notes: newOrderNotes || null,
@@ -398,6 +885,29 @@ if (createOrderForm) {
   createOrderForm.addEventListener('submit', createOrder);
 }
 
+function handleOrderCustomerChange() {
+  const selectedId = Number(orderCustomerSelect.value);
+  const customer = state.customers.find((item) => item.id === selectedId);
+  const documentInput = document.getElementById('newCustomerDocument');
+  const nameInput = document.getElementById('newCustomerName');
+  const contactInput = document.getElementById('newCustomerContact');
+  if (!customer) {
+    if (documentInput) documentInput.value = '';
+    if (nameInput) nameInput.value = '';
+    if (contactInput) contactInput.value = '';
+    renderCustomerMeasurementOptions(null);
+    return;
+  }
+  if (documentInput) documentInput.value = customer.document_id || '';
+  if (nameInput) nameInput.value = customer.full_name || '';
+  if (contactInput) contactInput.value = customer.phone || '';
+  renderCustomerMeasurementOptions(customer);
+}
+
+if (orderCustomerSelect) {
+  orderCustomerSelect.addEventListener('change', handleOrderCustomerChange);
+}
+
 function createStatusSelect(currentStatus) {
   const select = document.createElement('select');
   populateStatusSelect(select, currentStatus);
@@ -416,7 +926,7 @@ function renderOrders() {
   if (!state.orders.length) {
     const row = document.createElement('tr');
     const cell = document.createElement('td');
-    cell.colSpan = 8;
+    cell.colSpan = 9;
     cell.textContent = 'No hay órdenes registradas todavía.';
     cell.className = 'muted';
     row.appendChild(cell);
@@ -432,6 +942,9 @@ function renderOrders() {
 
     const customerCell = document.createElement('td');
     customerCell.textContent = order.customer_name;
+
+    const documentCell = document.createElement('td');
+    documentCell.textContent = order.customer_document || '—';
 
     const contactCell = document.createElement('td');
     const contactInput = document.createElement('input');
@@ -493,6 +1006,7 @@ function renderOrders() {
 
     row.appendChild(orderCell);
     row.appendChild(customerCell);
+    row.appendChild(documentCell);
     row.appendChild(contactCell);
     row.appendChild(statusCell);
     row.appendChild(tailorCell);
@@ -504,13 +1018,68 @@ function renderOrders() {
   });
 }
 
-async function initialise() {
+function renderAuditLogs() {
+  if (!auditLogTableBody) return;
+  auditLogTableBody.innerHTML = '';
+  if (!state.auditLogs.length) {
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = 6;
+    cell.textContent = 'No hay registros disponibles aún.';
+    cell.className = 'muted';
+    row.appendChild(cell);
+    auditLogTableBody.appendChild(row);
+    return;
+  }
+
+  state.auditLogs.forEach((entry) => {
+    const row = document.createElement('tr');
+
+    const dateCell = document.createElement('td');
+    dateCell.textContent = formatDate(entry.timestamp);
+
+    const actorCell = document.createElement('td');
+    actorCell.textContent = entry.actor ? entry.actor.full_name : 'Sistema';
+
+    const actionCell = document.createElement('td');
+    actionCell.textContent = entry.action;
+
+    const entityCell = document.createElement('td');
+    entityCell.textContent = entry.entity_id ? `${entry.entity_type} (#${entry.entity_id})` : entry.entity_type;
+
+    const beforeCell = document.createElement('td');
+    if (entry.before && Object.keys(entry.before).length) {
+      const pre = document.createElement('pre');
+      pre.textContent = JSON.stringify(entry.before, null, 2);
+      beforeCell.appendChild(pre);
+    } else {
+      beforeCell.innerHTML = '<span class="muted">Sin datos</span>';
+    }
+
+    const afterCell = document.createElement('td');
+    if (entry.after && Object.keys(entry.after).length) {
+      const pre = document.createElement('pre');
+      pre.textContent = JSON.stringify(entry.after, null, 2);
+      afterCell.appendChild(pre);
+    } else {
+      afterCell.innerHTML = '<span class="muted">Sin datos</span>';
+    }
+
+    row.appendChild(dateCell);
+    row.appendChild(actorCell);
+    row.appendChild(actionCell);
+    row.appendChild(entityCell);
+    row.appendChild(beforeCell);
+    row.appendChild(afterCell);
+
+    auditLogTableBody.appendChild(row);
+  });
+}
+
+function initialise() {
   ensureMeasurementRow();
-  try {
-    state.statuses = await apiFetch('/statuses', { auth: false });
-    populateStatusSelect(statusSelect);
-  } catch (error) {
-    console.error('No se pudo cargar la lista de estados', error);
+  if (customerMeasurementsContainer && !customerMeasurementsContainer.children.length) {
+    createMeasurementSetBlock(customerMeasurementsContainer);
   }
 }
 

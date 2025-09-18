@@ -1,6 +1,6 @@
 # Portal de Sastrería
 
-Aplicación completa para gestionar y consultar órdenes de un taller de sastrería. El proyecto incluye un backend basado en FastAPI con autenticación y un frontend ligero en HTML/JavaScript para clientes y personal interno.
+Aplicación completa para gestionar y consultar órdenes de un taller de sastrería. El proyecto incluye un backend basado en FastAPI con autenticación JWT y un frontend ligero en HTML/JavaScript para clientes y personal interno.
 
 ## Requisitos
 
@@ -48,15 +48,17 @@ Luego visita `http://localhost:5173` en tu navegador. Asegúrate de que el backe
 
 ## Roles disponibles
 
-- **Administrador**: crear usuarios, gestionar órdenes y eliminar registros.
-- **Vendedor**: crear y actualizar órdenes.
-- **Sastre**: consultar y actualizar el estado de las órdenes asignadas.
+- **Administrador**: crear usuarios, gestionar clientes y órdenes, consultar la bitácora y eliminar registros.
+- **Vendedor**: crear clientes, registrar nuevas órdenes y actualizar sus datos.
+- **Sastre**: consultar clientes y órdenes, actualizar los arreglos y estados (sin crear órdenes).
 
 ## Funcionalidades principales
 
-- Consulta pública del estado de una orden por número.
-- Gestión interna de órdenes: creación, actualización de estado, notas y asignación de sastre.
-- Registro de medidas del cliente por orden.
+- Consulta pública del estado de una orden por número de orden **o** cédula del cliente.
+- Catálogo reutilizable de clientes con teléfono y conjuntos de medidas guardadas.
+- Gestión interna de órdenes: creación (según rol), actualización de estado, notas y asignación de sastre.
+- Aplicación rápida de las medidas guardadas del cliente al generar una orden.
+- Bitácora de auditoría inmutable accesible para administradores.
 - Gestión de usuarios con control de permisos (Administrador, Vendedor, Sastre).
 
 ## Estructura del proyecto

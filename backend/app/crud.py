@@ -1,8 +1,97 @@
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Dict, Any
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from . import auth, models, schemas
+
+
+# Serialization helpers -----------------------------------------------------
+
+def serialize_user(user: Optional[models.User]) -> Optional[Dict[str, Any]]:
+    if user is None:
+        return None
+    return {
+        "id": user.id,
+        "username": user.username,
+        "full_name": user.full_name,
+        "role": user.role.value if user.role else None,
+    }
+
+
+def serialize_customer(customer: Optional[models.Customer]) -> Optional[Dict[str, Any]]:
+    if customer is None:
+        return None
+    return {
+        "id": customer.id,
+        "full_name": customer.full_name,
+        "document_id": customer.document_id,
+        "phone": customer.phone,
+        "created_at": customer.created_at.isoformat() if customer.created_at else None,
+        "updated_at": customer.updated_at.isoformat() if customer.updated_at else None,
+        "measurements": [
+            {
+                "id": measurement.id,
+                "name": measurement.title,
+                "measurements": measurement.measurements,
+            }
+            for measurement in customer.measurements
+        ],
+    }
+
+
+def serialize_order(order: Optional[models.Order]) -> Optional[Dict[str, Any]]:
+    if order is None:
+        return None
+    return {
+        "id": order.id,
+        "order_number": order.order_number,
+        "customer_id": order.customer_id,
+        "customer_name": order.customer_name,
+        "customer_document": order.customer_document,
+        "customer_contact": order.customer_contact,
+        "status": order.status.value if order.status else None,
+        "measurements": order.measurements,
+        "notes": order.notes,
+        "assigned_tailor_id": order.assigned_tailor_id,
+        "created_at": order.created_at.isoformat() if order.created_at else None,
+        "updated_at": order.updated_at.isoformat() if order.updated_at else None,
+    }
+
+
+# Audit log operations ------------------------------------------------------
+
+def create_audit_log(
+    db: Session,
+    *,
+    actor: Optional[models.User],
+    action: str,
+    entity_type: str,
+    entity_id: Optional[int],
+    before: Optional[Dict[str, Any]] = None,
+    after: Optional[Dict[str, Any]] = None,
+) -> models.AuditLog:
+    log_entry = models.AuditLog(
+        actor_id=actor.id if actor else None,
+        action=action,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        before=before,
+        after=after,
+    )
+    db.add(log_entry)
+    db.commit()
+    db.refresh(log_entry)
+    return log_entry
+
+
+def list_audit_logs(db: Session, *, limit: int = 200) -> List[models.AuditLog]:
+    return (
+        db.query(models.AuditLog)
+        .options(joinedload(models.AuditLog.actor))
+        .order_by(models.AuditLog.timestamp.desc())
+        .limit(limit)
+        .all()
+    )
 
 
 # User operations -----------------------------------------------------------
@@ -47,6 +136,89 @@ def update_user(db: Session, db_user: models.User, user_update: schemas.UserUpda
     return db_user
 
 
+# Customer operations -------------------------------------------------------
+
+def _measurement_collections_to_models(
+    customer_id: int, measurements: Iterable[schemas.CustomerMeasurementCreate]
+) -> List[models.CustomerMeasurement]:
+    result: List[models.CustomerMeasurement] = []
+    for measurement in measurements:
+        if isinstance(measurement, dict):
+            measurement = schemas.CustomerMeasurementCreate(**measurement)
+        db_measurement = models.CustomerMeasurement(
+            customer_id=customer_id,
+            title=measurement.name,
+            measurements=_measurements_to_dicts(measurement.measurements),
+        )
+        result.append(db_measurement)
+    return result
+
+
+def get_customer(db: Session, customer_id: int) -> Optional[models.Customer]:
+    return (
+        db.query(models.Customer)
+        .options(joinedload(models.Customer.measurements))
+        .filter(models.Customer.id == customer_id)
+        .first()
+    )
+
+
+def get_customer_by_document(db: Session, document_id: str) -> Optional[models.Customer]:
+    return (
+        db.query(models.Customer)
+        .options(joinedload(models.Customer.measurements))
+        .filter(models.Customer.document_id == document_id)
+        .first()
+    )
+
+
+def get_customers(db: Session) -> List[models.Customer]:
+    return (
+        db.query(models.Customer)
+        .options(joinedload(models.Customer.measurements))
+        .order_by(models.Customer.full_name.asc())
+        .all()
+    )
+
+
+def create_customer(db: Session, customer_in: schemas.CustomerCreate) -> models.Customer:
+    db_customer = models.Customer(
+        full_name=customer_in.full_name,
+        document_id=customer_in.document_id,
+        phone=customer_in.phone,
+    )
+    db.add(db_customer)
+    db.flush()
+    for measurement in _measurement_collections_to_models(db_customer.id, customer_in.measurements):
+        db.add(measurement)
+    db.commit()
+    db.refresh(db_customer)
+    return db_customer
+
+
+def update_customer(
+    db: Session, db_customer: models.Customer, customer_update: schemas.CustomerUpdate
+) -> models.Customer:
+    data = customer_update.dict(exclude_unset=True)
+    measurements_payload = data.pop("measurements", None)
+    for field, value in data.items():
+        setattr(db_customer, field, value)
+    if measurements_payload is not None:
+        for existing in list(db_customer.measurements):
+            db.delete(existing)
+        db.flush()
+        for measurement in _measurement_collections_to_models(db_customer.id, measurements_payload):
+            db.add(measurement)
+    db.commit()
+    db.refresh(db_customer)
+    return db_customer
+
+
+def delete_customer(db: Session, db_customer: models.Customer) -> None:
+    db.delete(db_customer)
+    db.commit()
+
+
 # Order operations ----------------------------------------------------------
 
 def _measurements_to_dicts(measurements: Iterable[schemas.MeasurementItem]):
@@ -56,7 +228,9 @@ def _measurements_to_dicts(measurements: Iterable[schemas.MeasurementItem]):
 def create_order(db: Session, order_in: schemas.OrderCreate) -> models.Order:
     db_order = models.Order(
         order_number=order_in.order_number,
-        customer_name=order_in.customer_name,
+        customer_id=order_in.customer_id,
+        customer_name=order_in.customer_name or "",
+        customer_document=order_in.customer_document,
         customer_contact=order_in.customer_contact,
         status=order_in.status,
         measurements=_measurements_to_dicts(order_in.measurements),
@@ -70,7 +244,15 @@ def create_order(db: Session, order_in: schemas.OrderCreate) -> models.Order:
 
 
 def get_order(db: Session, order_id: int) -> Optional[models.Order]:
-    return db.query(models.Order).filter(models.Order.id == order_id).first()
+    return (
+        db.query(models.Order)
+        .options(
+            joinedload(models.Order.assigned_tailor),
+            joinedload(models.Order.customer).joinedload(models.Customer.measurements),
+        )
+        .filter(models.Order.id == order_id)
+        .first()
+    )
 
 
 def get_order_by_number(db: Session, order_number: str) -> Optional[models.Order]:
@@ -83,7 +265,29 @@ def get_order_by_number(db: Session, order_number: str) -> Optional[models.Order
 
 
 def get_orders(db: Session) -> List[models.Order]:
-    return db.query(models.Order).order_by(models.Order.created_at.desc()).all()
+    return (
+        db.query(models.Order)
+        .options(
+            joinedload(models.Order.assigned_tailor),
+            joinedload(models.Order.customer).joinedload(models.Customer.measurements),
+        )
+        .order_by(models.Order.created_at.desc())
+        .all()
+    )
+
+
+def search_orders(
+    db: Session,
+    *,
+    order_number: Optional[str] = None,
+    customer_document: Optional[str] = None,
+) -> List[models.Order]:
+    query = db.query(models.Order).options(joinedload(models.Order.customer))
+    if order_number:
+        query = query.filter(models.Order.order_number == order_number)
+    if customer_document:
+        query = query.filter(models.Order.customer_document == customer_document)
+    return query.order_by(models.Order.updated_at.desc()).all()
 
 
 def update_order(db: Session, db_order: models.Order, order_update: schemas.OrderUpdate) -> models.Order:
