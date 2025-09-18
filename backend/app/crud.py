@@ -1,5 +1,6 @@
 from typing import Iterable, List, Optional, Dict, Any
 
+from sqlalchemy import case, or_
 from sqlalchemy.orm import Session, joinedload
 
 from . import auth, models, schemas
@@ -53,6 +54,8 @@ def serialize_order(order: Optional[models.Order]) -> Optional[Dict[str, Any]]:
         "measurements": order.measurements,
         "notes": order.notes,
         "assigned_tailor_id": order.assigned_tailor_id,
+        "entry_date": order.entry_date.isoformat() if order.entry_date else None,
+        "delivery_date": order.delivery_date.isoformat() if order.delivery_date else None,
         "created_at": order.created_at.isoformat() if order.created_at else None,
         "updated_at": order.updated_at.isoformat() if order.updated_at else None,
     }
@@ -172,13 +175,17 @@ def get_customer_by_document(db: Session, document_id: str) -> Optional[models.C
     )
 
 
-def get_customers(db: Session) -> List[models.Customer]:
-    return (
-        db.query(models.Customer)
-        .options(joinedload(models.Customer.measurements))
-        .order_by(models.Customer.full_name.asc())
-        .all()
-    )
+def get_customers(db: Session, *, search: Optional[str] = None) -> List[models.Customer]:
+    query = db.query(models.Customer).options(joinedload(models.Customer.measurements))
+    if search:
+        pattern = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                models.Customer.full_name.ilike(pattern),
+                models.Customer.document_id.ilike(pattern),
+            )
+        )
+    return query.order_by(models.Customer.full_name.asc()).all()
 
 
 def create_customer(db: Session, customer_in: schemas.CustomerCreate) -> models.Customer:
@@ -241,6 +248,8 @@ def create_order(db: Session, order_in: schemas.OrderCreate) -> models.Order:
         measurements=_measurements_to_dicts(order_in.measurements),
         notes=order_in.notes,
         assigned_tailor_id=order_in.assigned_tailor_id,
+        entry_date=order_in.entry_date,
+        delivery_date=order_in.delivery_date,
     )
     db.add(db_order)
     db.commit()
@@ -276,7 +285,12 @@ def get_orders(db: Session) -> List[models.Order]:
             joinedload(models.Order.assigned_tailor),
             joinedload(models.Order.customer).joinedload(models.Customer.measurements),
         )
-        .order_by(models.Order.created_at.desc())
+        .order_by(
+            case((models.Order.status == models.OrderStatus.ENTREGADO, 1), else_=0),
+            models.Order.delivery_date.asc().nulls_last(),
+            models.Order.entry_date.asc(),
+            models.Order.created_at.desc(),
+        )
         .all()
     )
 
