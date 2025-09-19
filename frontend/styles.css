@@ -225,11 +225,17 @@ button.full-width {
 button.link-button {
   background: none;
   border: none;
-  color: white;
+  color: var(--primary-dark);
   font-weight: 600;
   padding: 0;
   margin-left: 0.5rem;
   text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+
+button.link-button:hover {
+  color: var(--primary);
 }
 
 button[disabled] {
@@ -395,6 +401,19 @@ button[disabled] {
   .customer-panel-actions button {
     width: 100%;
   }
+
+  .order-panel-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .order-search {
+    width: 100%;
+  }
+
+  .order-search input {
+    width: 100%;
+  }
 }
 
 .customer-detail {
@@ -452,9 +471,43 @@ button[disabled] {
   gap: 0.75rem;
 }
 
+.order-panel-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.order-panel-controls p {
+  margin: 0;
+  max-width: 48ch;
+}
+
+.order-search {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.order-search label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.order-search input {
+  width: min(260px, 100%);
+}
+
 .user-info {
   color: var(--muted);
   font-size: 0.95rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .measurement-set-list,
@@ -538,6 +591,12 @@ th {
   text-decoration-color: var(--danger);
   text-decoration-thickness: 2px;
   text-underline-offset: 3px;
+  font-weight: 600;
+}
+
+.overdue {
+  color: var(--danger);
+  font-weight: 700;
 }
 
 .measurement-list {
