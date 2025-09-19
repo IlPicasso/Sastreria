@@ -8,10 +8,12 @@ import re
 import secrets
 import string
 from collections import Counter
-from datetime import date, timedelta
-from typing import Iterable, List, Sequence, Tuple
+from datetime import UTC, date, datetime, timedelta
+from typing import Iterable, List, Optional, Sequence, Tuple
 
-from sqlalchemy import delete, select
+from sqlalchemy import MetaData, Table, delete, inspect, select
+
+
 from sqlalchemy.orm import Session
 
 from app import crud, models, schemas
@@ -153,6 +155,13 @@ def order_number_candidates(year: int) -> Iterable[str]:
         counter += 1
 
 
+def naive_utcnow() -> datetime:
+    """Return a naive UTC timestamp compatible with existing columns."""
+
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
+
 def random_person() -> Tuple[str, str]:
     return random.choice(FIRST_NAMES), random.choice(LAST_NAMES)
 
@@ -272,6 +281,69 @@ def seed_customers(db: Session, count: int) -> List[models.Customer]:
     return customers
 
 
+def orders_table_requires_entry_date(db: Session) -> bool:
+    """Detect if the orders table enforces a non-null ``entry_date`` column."""
+
+    bind = db.get_bind()
+    if bind is None:
+        return False
+    inspector = inspect(bind)
+    try:
+        columns = inspector.get_columns("orders")
+    except Exception:
+        return False
+    for column in columns:
+        if column["name"] != "entry_date":
+            continue
+        if column.get("nullable", True):
+            return False
+        has_default = bool(column.get("default") or column.get("server_default"))
+        return not has_default
+    return False
+
+
+def load_orders_table(db: Session) -> Optional[Table]:
+    """Reflect the orders table when direct inserts are required."""
+
+    bind = db.get_bind()
+    if bind is None:
+        return None
+    metadata = MetaData()
+    try:
+        return Table("orders", metadata, autoload_with=bind)
+    except Exception:
+        return None
+
+
+def measurement_payload(items: Iterable[schemas.MeasurementItem]) -> List[dict]:
+    """Serialize measurement items to JSON-compatible dictionaries."""
+
+    payload: List[dict] = []
+    for item in items:
+        if isinstance(item, schemas.MeasurementItem):
+            payload.append(item.model_dump())
+        else:
+            payload.append(schemas.MeasurementItem.model_validate(item).model_dump())
+    return payload
+
+
+def random_entry_date(delivery_date: Optional[date]) -> date:
+    """Produce a plausible entry date respecting the delivery date when present."""
+
+    today = date.today()
+    if delivery_date and delivery_date <= today:
+        latest = max(delivery_date - timedelta(days=1), today - timedelta(days=90))
+    else:
+        latest = today
+    earliest = max(latest - timedelta(days=45), today - timedelta(days=120))
+    if earliest > latest:
+        earliest = latest
+    span = max((latest - earliest).days, 0)
+    offset = random.randint(0, span) if span else 0
+    return latest - timedelta(days=offset)
+
+
+
 def seed_orders(
     db: Session,
     count: int,
@@ -281,7 +353,15 @@ def seed_orders(
     if count <= 0 or not customers:
         return []
     existing_order_numbers = set(db.execute(select(models.Order.order_number)).scalars())
-    year = now().year
+    year = datetime.now(UTC).year
+    needs_entry_date = orders_table_requires_entry_date(db)
+    orders_table = load_orders_table(db) if needs_entry_date else None
+    if needs_entry_date and orders_table is None:
+        raise RuntimeError(
+            "No se pudo reflejar la tabla de órdenes para establecer 'entry_date'."
+        )
+
+
     orders: List[models.Order] = []
     for _ in range(count):
         customer = random.choice(customers)
@@ -305,7 +385,32 @@ def seed_orders(
             assigned_tailor_id=assigned_tailor_id,
             delivery_date=random_delivery_date(status),
         )
-        order = crud.create_order(db, order_in)
+        if needs_entry_date and orders_table is not None:
+            entry_date = random_entry_date(order_in.delivery_date)
+            now = naive_utcnow()
+            payload = {
+                "order_number": order_in.order_number,
+                "customer_id": order_in.customer_id,
+                "customer_name": order_in.customer_name or "",
+                "customer_document": order_in.customer_document,
+                "customer_contact": order_in.customer_contact,
+                "status": order_in.status.name,
+                "measurements": measurement_payload(order_in.measurements),
+                "notes": order_in.notes,
+                "assigned_tailor_id": order_in.assigned_tailor_id,
+                "delivery_date": order_in.delivery_date,
+                "entry_date": entry_date,
+                "created_at": now,
+                "updated_at": now,
+            }
+            db.execute(orders_table.insert().values(**payload))
+            db.commit()
+            order = crud.get_order_by_number(db, order_in.order_number)
+            if order is None:
+                raise RuntimeError("No se pudo recuperar la orden recién insertada")
+        else:
+            order = crud.create_order(db, order_in)
+
         orders.append(order)
     return orders
 
