@@ -108,6 +108,7 @@ navButtons.forEach((btn) => {
 let activeDashboardTab = 'customersListPanel';
 let orderCustomerSearchTimeout = null;
 let suppressOrderSearch = false;
+let lastOrderSearchTerm = '';
 
 function setActiveDashboardTab(tabId) {
   if (!tabId) return;
@@ -184,6 +185,25 @@ function isDeliveryDueSoon(order) {
   const daysUntil = calculateDaysUntil(order.delivery_date);
   if (daysUntil === null) return false;
   return daysUntil <= DELIVERY_WARNING_THRESHOLD_DAYS;
+}
+
+function isDeliveryOverdue(order) {
+  if (!order?.delivery_date) return false;
+  if (order.status === 'Entregado') return false;
+  const daysUntil = calculateDaysUntil(order.delivery_date);
+  if (daysUntil === null) return false;
+  return daysUntil < 0;
+}
+
+function getDeliveryHighlightClasses(order) {
+  if (!order) return [];
+  if (isDeliveryOverdue(order)) {
+    return ['deadline-warning', 'deadline-overdue'];
+  }
+  if (isDeliveryDueSoon(order)) {
+    return ['deadline-warning'];
+  }
+  return [];
 }
 
 function toInputDateValue(value) {
@@ -536,6 +556,7 @@ function clearOrderCustomerSelection({ preserveSearchValue = false } = {}) {
     orderCustomerSearchInput.value = '';
   }
   state.orderCustomerResults = [];
+  lastOrderSearchTerm = '';
   hideOrderCustomerResults();
   if (orderCustomerClearButton) {
     orderCustomerClearButton.classList.add('hidden');
@@ -1184,6 +1205,7 @@ if (orderCustomerSearchInput) {
   orderCustomerSearchInput.addEventListener('input', (event) => {
     if (suppressOrderSearch) return;
     const term = event.target.value.trim();
+    const normalizedTerm = term.toLowerCase();
     if (state.orderCustomerSelection) {
       clearOrderCustomerSelection({ preserveSearchValue: true });
     }
@@ -1192,17 +1214,24 @@ if (orderCustomerSearchInput) {
     }
     if (term.length < 2) {
       state.orderCustomerResults = [];
+      lastOrderSearchTerm = '';
       if (!term) {
         hideOrderCustomerResults();
       }
+      return;
+    }
+    if (normalizedTerm === lastOrderSearchTerm && state.orderCustomerResults.length) {
+      orderCustomerResults?.classList.remove('hidden');
       return;
     }
     orderCustomerSearchTimeout = setTimeout(async () => {
       try {
         const params = new URLSearchParams({ search: term });
         const results = await apiFetch(`/customers?${params.toString()}`);
+        lastOrderSearchTerm = normalizedTerm;
         renderOrderCustomerResultsList(results);
       } catch (error) {
+        lastOrderSearchTerm = '';
         hideOrderCustomerResults();
         showToast(error.message, 'error');
       }
@@ -1373,13 +1402,10 @@ function renderOrders() {
     row.classList.add('order-row');
 
     const entryDateRaw = order.entry_date || order.created_at;
-    const dueSoon = isDeliveryDueSoon(order);
+    const highlightClasses = getDeliveryHighlightClasses(order);
 
     const orderCell = document.createElement('td');
     orderCell.innerHTML = `<strong>${order.order_number}</strong>`;
-    if (dueSoon) {
-      orderCell.classList.add('deadline-warning');
-    }
 
     const customerCell = document.createElement('td');
     customerCell.textContent = order.customer_name;
@@ -1389,9 +1415,11 @@ function renderOrders() {
 
     const deliveryCell = document.createElement('td');
     deliveryCell.textContent = formatDateOnly(order.delivery_date);
-    if (dueSoon) {
-      deliveryCell.classList.add('deadline-warning');
-    }
+
+    highlightClasses.forEach((className) => {
+      orderCell.classList.add(className);
+      deliveryCell.classList.add(className);
+    });
 
     row.appendChild(orderCell);
     row.appendChild(customerCell);
@@ -1465,6 +1493,12 @@ if (orderDetailCloseButton) {
     clearOrderDetail();
   });
 }
+
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  if (orderDetailContainer?.classList.contains('hidden')) return;
+  clearOrderDetail();
+});
 
 if (orderDetailStatusSelect) {
   orderDetailStatusSelect.addEventListener('change', () => {

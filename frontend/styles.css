@@ -497,6 +497,11 @@ th {
   text-decoration-skip-ink: auto;
 }
 
+.deadline-overdue {
+  color: var(--danger);
+  font-weight: 600;
+}
+
 .table-wrapper input,
 .table-wrapper textarea,
 .table-wrapper select {
