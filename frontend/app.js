@@ -1351,7 +1351,7 @@ function renderOrders() {
   if (!state.orders.length) {
     const row = document.createElement('tr');
     const cell = document.createElement('td');
-    cell.colSpan = 5;
+    cell.colSpan = 4;
     cell.textContent = 'No hay órdenes registradas todavía.';
     cell.className = 'muted';
     row.appendChild(cell);
@@ -1393,25 +1393,22 @@ function renderOrders() {
       deliveryCell.classList.add('deadline-warning');
     }
 
-    const actionsCell = document.createElement('td');
-    const detailButton = document.createElement('button');
-    detailButton.type = 'button';
-    detailButton.className = 'secondary small';
-    detailButton.textContent = 'Ver detalles';
-    detailButton.addEventListener('click', (event) => {
-      event.stopPropagation();
-      showOrderDetail(order.id);
-    });
-    actionsCell.appendChild(detailButton);
-
     row.appendChild(orderCell);
     row.appendChild(customerCell);
     row.appendChild(entryCell);
     row.appendChild(deliveryCell);
-    row.appendChild(actionsCell);
+
+    row.tabIndex = 0;
+    row.setAttribute('aria-label', `Abrir orden ${order.order_number}`);
 
     row.addEventListener('click', () => {
       showOrderDetail(order.id);
+    });
+    row.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        showOrderDetail(order.id);
+      }
     });
 
     ordersTableBody.appendChild(row);
