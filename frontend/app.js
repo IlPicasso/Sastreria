@@ -16,6 +16,8 @@ const state = {
 
 const views = document.querySelectorAll('.view');
 const navButtons = document.querySelectorAll('.nav-button');
+const panelNavButton = document.getElementById('panelNavButton');
+const loginNavButton = document.getElementById('loginNavButton');
 const dashboardTabButtons = document.querySelectorAll('.dashboard-tab');
 const dashboardPanels = document.querySelectorAll('.dashboard-panel');
 const orderLookupForm = document.getElementById('orderLookupForm');
@@ -91,11 +93,25 @@ function setActiveView(viewId) {
   navButtons.forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.view === viewId);
   });
+  if (loginNavButton) {
+    const shouldHighlightLogin = viewId === 'staff-view' && !state.token;
+    loginNavButton.classList.toggle('active', shouldHighlightLogin);
+  }
 }
 
 navButtons.forEach((btn) => {
   btn.addEventListener('click', () => setActiveView(btn.dataset.view));
 });
+
+if (loginNavButton) {
+  loginNavButton.addEventListener('click', () => {
+    setActiveView('staff-view');
+    const usernameInput = document.getElementById('username');
+    if (usernameInput) {
+      usernameInput.focus();
+    }
+  });
+}
 
 function setActiveDashboardTab(tabId = 'orderListPanel') {
   if (!dashboardPanels.length) return;
@@ -646,6 +662,19 @@ function hideDashboard() {
   }
 }
 
+function updateNavigationForAuth() {
+  const isAuthenticated = Boolean(state.token);
+  if (panelNavButton) {
+    panelNavButton.classList.toggle('hidden', !isAuthenticated);
+  }
+  if (loginNavButton) {
+    loginNavButton.classList.toggle('hidden', isAuthenticated);
+    if (isAuthenticated) {
+      loginNavButton.classList.remove('active');
+    }
+  }
+}
+
 async function handleLogin(event) {
   event.preventDefault();
   const username = document.getElementById('username').value.trim();
@@ -669,6 +698,8 @@ async function handleLogin(event) {
       await loadAuditLogs();
     }
     showDashboard();
+    updateNavigationForAuth();
+    setActiveView('staff-view');
     state.customerSearchTerm = '';
     if (customerSearchInput) {
       customerSearchInput.value = '';
@@ -810,6 +841,8 @@ function handleLogout(auto = false) {
   ensureMeasurementRow();
   renderCustomerMeasurementOptions(null);
   clearOrderResult();
+  updateNavigationForAuth();
+  setActiveView('staff-view');
   if (auto) {
     showToast('La sesión ha expirado, vuelve a iniciar sesión.', 'error');
   }
@@ -1366,3 +1399,4 @@ function initialise() {
 }
 
 initialise();
+updateNavigationForAuth();

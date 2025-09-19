@@ -11,8 +11,19 @@
       <div class="container">
         <h1>Portal de Sastrería</h1>
         <nav class="main-nav">
-          <button class="nav-button active" data-view="client-view">Clientes</button>
-          <button class="nav-button" data-view="staff-view">Personal</button>
+          <div class="main-nav-buttons">
+            <button class="nav-button active" data-view="client-view">Clientes</button>
+            <button
+              class="nav-button hidden"
+              data-view="staff-view"
+              id="panelNavButton"
+            >
+              Panel
+            </button>
+          </div>
+          <button type="button" class="login-button" id="loginNavButton">
+            Iniciar sesión
+          </button>
         </nav>
       </div>
     </header>
