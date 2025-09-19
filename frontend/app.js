@@ -11,6 +11,7 @@ const state = {
   auditLogs: [],
   selectedCustomerId: null,
   selectedOrderId: null,
+
   customerSearchTerm: '',
   orderCustomerSelection: null,
   orderCustomerResults: [],
@@ -79,6 +80,7 @@ const orderDetailDeliveryInput = document.getElementById('orderDetailDeliveryDat
 const orderDetailNotesTextarea = document.getElementById('orderDetailNotes');
 const orderDetailMeasurementsContainer = document.getElementById('orderDetailMeasurements');
 const orderDetailCloseButton = document.getElementById('closeOrderDetail');
+
 
 const ROLE_LABELS = {
   administrador: 'Administrador',
@@ -557,6 +559,7 @@ function clearOrderCustomerSelection({ preserveSearchValue = false } = {}) {
   }
   state.orderCustomerResults = [];
   lastOrderSearchTerm = '';
+
   hideOrderCustomerResults();
   if (orderCustomerClearButton) {
     orderCustomerClearButton.classList.add('hidden');
@@ -886,6 +889,7 @@ function handleLogout(auto = false) {
   state.auditLogs = [];
   state.selectedCustomerId = null;
   state.selectedOrderId = null;
+
   state.customerSearchTerm = '';
   state.orderCustomerSelection = null;
   state.orderCustomerResults = [];
@@ -1361,6 +1365,61 @@ function clearOrderDetail() {
     orderDetailPlaceholder.textContent = 'Selecciona una orden para ver toda la información.';
   }
   highlightSelectedOrderRow();
+=======
+}
+
+if (orderCustomerSearchInput) {
+  orderCustomerSearchInput.addEventListener('input', (event) => {
+    if (suppressOrderSearch) return;
+    const term = event.target.value.trim();
+    if (state.orderCustomerSelection) {
+      clearOrderCustomerSelection({ preserveSearchValue: true });
+    }
+    if (orderCustomerSearchTimeout) {
+      clearTimeout(orderCustomerSearchTimeout);
+    }
+    if (term.length < 2) {
+      state.orderCustomerResults = [];
+      if (!term) {
+        hideOrderCustomerResults();
+      }
+      return;
+    }
+    orderCustomerSearchTimeout = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ search: term });
+        const results = await apiFetch(`/customers?${params.toString()}`);
+        renderOrderCustomerResultsList(results);
+      } catch (error) {
+        hideOrderCustomerResults();
+        showToast(error.message, 'error');
+      }
+    }, 250);
+  });
+
+  orderCustomerSearchInput.addEventListener('focus', () => {
+    if (state.orderCustomerResults.length) {
+      renderOrderCustomerResultsList(state.orderCustomerResults);
+    }
+  });
+}
+
+document.addEventListener('click', (event) => {
+  if (!orderCustomerResults || !orderCustomerSearchInput) return;
+  if (
+    orderCustomerResults.contains(event.target) ||
+    orderCustomerSearchInput.contains(event.target) ||
+    orderCustomerClearButton?.contains(event.target)
+  ) {
+    return;
+  }
+  hideOrderCustomerResults();
+});
+
+function createStatusSelect(currentStatus) {
+  const select = document.createElement('select');
+  populateStatusSelect(select, currentStatus);
+  return select;
 }
 
 function highlightSelectedOrderRow() {
@@ -1380,7 +1439,7 @@ function renderOrders() {
   if (!state.orders.length) {
     const row = document.createElement('tr');
     const cell = document.createElement('td');
-    cell.colSpan = 4;
+    cell.colSpan = 11;
     cell.textContent = 'No hay órdenes registradas todavía.';
     cell.className = 'muted';
     row.appendChild(cell);
@@ -1404,8 +1463,10 @@ function renderOrders() {
     const entryDateRaw = order.entry_date || order.created_at;
     const highlightClasses = getDeliveryHighlightClasses(order);
 
+    const entryDateRaw = order.entry_date || order.created_at;
     const orderCell = document.createElement('td');
     orderCell.innerHTML = `<strong>${order.order_number}</strong>`;
+
 
     const customerCell = document.createElement('td');
     customerCell.textContent = order.customer_name;
