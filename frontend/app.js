@@ -79,6 +79,7 @@ const DELIVERY_WARNING_DAYS = 2;
 
 let activeDashboardTab = 'orderListPanel';
 
+
 function setActiveView(viewId) {
   views.forEach((view) => {
     if (view.id === viewId) {
@@ -803,6 +804,8 @@ function handleLogout(auto = false) {
   }
   clearCustomerDetail();
   clearOrderDetail();
+  resetCreateCustomerForm();
+
   measurementsList.innerHTML = '';
   ensureMeasurementRow();
   renderCustomerMeasurementOptions(null);
@@ -1068,6 +1071,7 @@ if (closeCreateCustomerButton) {
     setCreateCustomerVisible(false);
   });
 }
+
 
 if (updateOrderForm) {
   updateOrderForm.addEventListener('submit', handleOrderUpdate);
