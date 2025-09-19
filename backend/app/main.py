@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 
 from . import auth, crud, models, schemas
 from .config import get_settings
-from .database import Base, engine, get_db
+from .database import engine, get_db
+from .migrations import ensure_schema
 from .dependencies import admin_required, staff_required, vendor_or_admin_required
 
 settings = get_settings()
@@ -24,8 +25,8 @@ app.add_middleware(
 
 
 @app.on_event("startup")
-def on_startup():
-    Base.metadata.create_all(bind=engine)
+def on_startup() -> None:
+    ensure_schema(engine)
 
 
 @app.get("/health")

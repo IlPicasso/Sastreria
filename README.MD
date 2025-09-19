@@ -28,7 +28,9 @@ Crear el primer usuario administrador:
 python create_admin.py --username admin --password cambialo --full-name "Administrador"
 ```
 
-Iniciar la API:
+Iniciar la API (la primera ejecución aplicará automáticamente las migraciones
+necesarias para garantizar que la tabla de órdenes cuente con las columnas de
+fecha de ingreso y entrega):
 
 ```bash
 uvicorn app.main:app --reload
