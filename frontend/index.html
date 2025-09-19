@@ -61,33 +61,63 @@
             </div>
           </div>
 
-          <section class="card" id="customersCard">
-            <h3>Gestión de clientes</h3>
-            <div class="customer-layout">
-              <div class="customer-column">
-                <h4>Registrar cliente</h4>
-                <form id="createCustomerForm" class="form-grid">
-                  <div class="form-row">
-                    <label for="customerFullName">Nombre completo</label>
-                    <input type="text" id="customerFullName" required />
-                  </div>
-                  <div class="form-row">
-                    <label for="customerDocumentInput">Cédula o identificación</label>
-                    <input type="text" id="customerDocumentInput" required />
-                  </div>
-                  <div class="form-row">
-                    <label for="customerPhone">Teléfono</label>
-                    <input type="text" id="customerPhone" placeholder="Número de contacto" />
-                  </div>
-                  <div class="form-row">
-                    <label>Conjuntos de medidas</label>
-                    <div id="customerMeasurementsContainer" class="measurement-set-list"></div>
-                    <button type="button" id="addCustomerMeasurementSet" class="secondary">Agregar conjunto</button>
-                  </div>
-                  <button type="submit" class="primary">Guardar cliente</button>
-                </form>
-              </div>
+          <nav class="dashboard-subnav">
+            <button type="button" class="dashboard-tab active" data-tab="orderListPanel">Órdenes registradas</button>
+            <button type="button" class="dashboard-tab" data-tab="orderCreatePanel">Crear orden</button>
+            <button type="button" class="dashboard-tab" data-tab="customersPanel">Clientes</button>
+            <button
+              type="button"
+              class="dashboard-tab admin-only hidden"
+              data-tab="auditLogPanel"
+              id="auditLogTabButton"
+            >
+              Bitácora de auditoría
+            </button>
+          </nav>
 
+          <section class="card dashboard-panel hidden" id="customersPanel">
+            <div class="customer-panel-header">
+              <div>
+                <h3>Gestión de clientes</h3>
+                <p class="muted">Consulta, busca y administra la información de tus clientes.</p>
+              </div>
+              <div class="customer-panel-actions">
+                <div class="customer-search">
+                  <label for="customerSearchInput">Buscar</label>
+                  <input type="search" id="customerSearchInput" placeholder="Nombre o cédula" />
+                </div>
+                <button type="button" class="primary" id="showCreateCustomerButton">Añadir cliente</button>
+              </div>
+            </div>
+            <div id="createCustomerSection" class="customer-create hidden">
+              <div class="customer-create-header">
+                <h4>Registrar cliente</h4>
+                <button type="button" class="link-button" id="closeCreateCustomerButton">Cerrar</button>
+              </div>
+              <form id="createCustomerForm" class="form-grid">
+                <div class="form-row">
+                  <label for="customerFullName">Nombre completo</label>
+                  <input type="text" id="customerFullName" required />
+                </div>
+                <div class="form-row">
+                  <label for="customerDocumentInput">Cédula o identificación</label>
+                  <input type="text" id="customerDocumentInput" required />
+                </div>
+                <div class="form-row">
+                  <label for="customerPhone">Teléfono</label>
+                  <input type="text" id="customerPhone" placeholder="Número de contacto" />
+                </div>
+                <div class="form-row">
+                  <label>Conjuntos de medidas</label>
+                  <div id="customerMeasurementsContainer" class="measurement-set-list"></div>
+                  <button type="button" id="addCustomerMeasurementSet" class="secondary">Agregar conjunto</button>
+                </div>
+                <div class="button-row">
+                  <button type="submit" class="primary">Guardar cliente</button>
+                </div>
+              </form>
+            </div>
+            <div class="customer-layout">
               <div class="customer-column">
                 <h4>Clientes registrados</h4>
                 <div class="table-wrapper">
@@ -104,6 +134,8 @@
                     <tbody id="customersTableBody"></tbody>
                   </table>
                 </div>
+              </div>
+              <div class="customer-column">
                 <div id="customerDetail" class="customer-detail hidden">
                   <h4>Detalle del cliente</h4>
                   <form id="updateCustomerForm" class="form-grid">
@@ -122,7 +154,9 @@
                     <div class="form-row">
                       <label>Conjuntos de medidas</label>
                       <div id="updateCustomerMeasurementsContainer" class="measurement-set-list"></div>
-                      <button type="button" id="addUpdateCustomerMeasurementSet" class="secondary">Agregar conjunto</button>
+                      <button type="button" id="addUpdateCustomerMeasurementSet" class="secondary">
+                        Agregar conjunto
+                      </button>
                     </div>
                     <div class="button-row">
                       <button type="submit" class="primary">Guardar cambios</button>
@@ -134,7 +168,7 @@
             </div>
           </section>
 
-          <section class="card">
+          <section class="card dashboard-panel hidden" id="orderCreatePanel">
             <h3>Crear nueva orden</h3>
             <form id="createOrderForm" class="form-grid">
               <div class="form-row">
@@ -164,6 +198,10 @@
                 <select id="newOrderStatus"></select>
               </div>
               <div class="form-row">
+                <label for="newOrderDeliveryDate">Fecha de entrega</label>
+                <input type="date" id="newOrderDeliveryDate" />
+              </div>
+              <div class="form-row">
                 <label>Medidas guardadas del cliente</label>
                 <div id="customerMeasurementOptions" class="measurement-option-list muted">
                   Selecciona un cliente para ver sus medidas guardadas.
@@ -188,29 +226,78 @@
             </form>
           </section>
 
-          <section class="card">
+          <section class="card dashboard-panel" id="orderListPanel">
             <h3>Órdenes registradas</h3>
+            <p class="muted small">
+              Las fechas próximas de entrega se subrayan en rojo cuando la orden aún no está entregada.
+            </p>
             <div class="table-wrapper">
               <table>
                 <thead>
                   <tr>
                     <th>Orden</th>
                     <th>Cliente</th>
-                    <th>Documento</th>
-                    <th>Contacto</th>
-                    <th>Estado</th>
-                    <th>Sastre</th>
-                    <th>Medidas</th>
-                    <th>Notas</th>
+                    <th>Fecha de ingreso</th>
+                    <th>Fecha de entrega</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody id="ordersTableBody"></tbody>
               </table>
             </div>
+            <div id="orderDetail" class="order-detail hidden">
+              <div class="order-detail-header">
+                <div>
+                  <h4>Detalle de la orden</h4>
+                  <p class="muted small">Orden <span id="orderDetailNumber"></span></p>
+                </div>
+                <button type="button" id="closeOrderDetailButton" class="link-button">Cerrar</button>
+              </div>
+              <div class="order-detail-meta">
+                <p><strong>Registrada:</strong> <span id="orderDetailCreatedAt"></span></p>
+                <p><strong>Última actualización:</strong> <span id="orderDetailUpdatedAt"></span></p>
+              </div>
+              <form id="updateOrderForm" class="form-grid">
+                <div class="form-row">
+                  <label for="orderDetailCustomer">Cliente</label>
+                  <input type="text" id="orderDetailCustomer" readonly />
+                </div>
+                <div class="form-row">
+                  <label for="orderDetailDocument">Documento</label>
+                  <input type="text" id="orderDetailDocument" readonly />
+                </div>
+                <div class="form-row">
+                  <label for="orderDetailContact">Contacto</label>
+                  <input type="text" id="orderDetailContact" />
+                </div>
+                <div class="form-row">
+                  <label for="orderDetailStatus">Estado</label>
+                  <select id="orderDetailStatus"></select>
+                </div>
+                <div class="form-row">
+                  <label for="orderDetailTailor">Sastre asignado</label>
+                  <select id="orderDetailTailor"></select>
+                </div>
+                <div class="form-row">
+                  <label for="orderDetailDeliveryDate">Fecha de entrega</label>
+                  <input type="date" id="orderDetailDeliveryDate" />
+                </div>
+                <div class="form-row">
+                  <label for="orderDetailNotes">Notas</label>
+                  <textarea id="orderDetailNotes" rows="3"></textarea>
+                </div>
+                <div class="form-row">
+                  <label>Medidas</label>
+                  <div id="orderDetailMeasurements" class="measurement-tags muted"></div>
+                </div>
+                <div class="button-row">
+                  <button type="submit" class="primary">Guardar cambios</button>
+                </div>
+              </form>
+            </div>
           </section>
 
-          <section class="card hidden" id="auditLogSection">
+          <section class="card dashboard-panel hidden" id="auditLogPanel">
             <h3>Bitácora de auditoría</h3>
             <p class="muted small">Registros inmutables de las acciones realizadas por los usuarios.</p>
             <div class="table-wrapper">

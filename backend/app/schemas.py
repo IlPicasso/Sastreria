@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
@@ -102,6 +102,7 @@ class OrderBase(BaseModel):
     measurements: List[MeasurementItem] = Field(default_factory=list)
     notes: Optional[str] = None
     assigned_tailor_id: Optional[int] = None
+    delivery_date: Optional[date] = None
 
 
 class OrderCreate(OrderBase):
@@ -117,6 +118,7 @@ class OrderUpdate(BaseModel):
     measurements: Optional[List[MeasurementItem]] = None
     notes: Optional[str] = None
     assigned_tailor_id: Optional[int] = None
+    delivery_date: Optional[date] = None
 
 
 class OrderPublic(BaseModel):
@@ -126,6 +128,7 @@ class OrderPublic(BaseModel):
     status: OrderStatus
     notes: Optional[str]
     updated_at: datetime
+    delivery_date: Optional[date] = None
     measurements: List[MeasurementItem] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
