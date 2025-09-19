@@ -28,6 +28,20 @@ Crear el primer usuario administrador:
 python create_admin.py --username admin --password cambialo --full-name "Administrador"
 ```
 
+Poblar la base de datos con información de ejemplo (opcional):
+
+```bash
+python seed_database.py --reset --yes --users 6 --customers 20 --orders 25
+```
+
+Argumentos útiles del comando:
+
+- `--reset`: vacía las tablas antes de insertar los datos ficticios (pide confirmación a menos que se utilice `--yes`).
+- `--users`, `--customers`, `--orders`: controlan cuántos usuarios, clientes y órdenes se generan (valores predeterminados: 5, 15 y 20 respectivamente).
+- `--yes`: omite la confirmación interactiva para el borrado de datos.
+
+Al finalizar, se mostrará un resumen con los registros creados y las credenciales generadas para los nuevos usuarios.
+
 Iniciar la API:
 
 ```bash
