@@ -1,10 +1,10 @@
 import enum
-from datetime import datetime
 
 from sqlalchemy import Column, Date, DateTime, Enum, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import relationship
 
 from .database import Base
+from .timezone import now
 
 
 class UserRole(str, enum.Enum):
@@ -61,11 +61,11 @@ class Order(Base):
     notes = Column(Text, nullable=True)
     assigned_tailor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     delivery_date = Column(Date, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=now, nullable=False)
     updated_at = Column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        DateTime(timezone=True),
+        default=now,
+        onupdate=now,
         nullable=False,
     )
 
@@ -82,11 +82,11 @@ class Customer(Base):
     full_name = Column(String(100), nullable=False)
     document_id = Column(String(50), unique=True, nullable=False, index=True)
     phone = Column(String(50), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=now, nullable=False)
     updated_at = Column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        DateTime(timezone=True),
+        default=now,
+        onupdate=now,
         nullable=False,
     )
 
@@ -107,11 +107,11 @@ class CustomerMeasurement(Base):
     customer_id = Column(Integer, ForeignKey("customers.id", ondelete="CASCADE"), nullable=False)
     title = Column(String(100), nullable=False)
     measurements = Column(JSON, nullable=False, default=list)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=now, nullable=False)
     updated_at = Column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        DateTime(timezone=True),
+        default=now,
+        onupdate=now,
         nullable=False,
     )
 
@@ -124,7 +124,7 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    timestamp = Column(DateTime(timezone=True), default=now, nullable=False)
     actor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     action = Column(String(50), nullable=False)
     entity_type = Column(String(50), nullable=False)
