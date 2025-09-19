@@ -73,6 +73,7 @@ const DELIVERY_WARNING_DAYS = 2;
 
 let activeDashboardTab = 'orderListPanel';
 
+
 function setActiveView(viewId) {
   views.forEach((view) => {
     if (view.id === viewId) {
@@ -1167,6 +1168,7 @@ function renderOrders() {
 
     const createdCell = document.createElement('td');
     createdCell.textContent = formatDate(order.created_at);
+
 
     const deliveryCell = document.createElement('td');
     if (order.delivery_date) {
