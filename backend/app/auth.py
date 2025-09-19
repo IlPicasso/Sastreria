@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status
@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from .config import get_settings
 from .database import get_db
 from . import models, schemas
+from .timezone import now
 
 settings = get_settings()
 
@@ -34,7 +35,7 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[mod
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + (
+    expire = now() + (
         expires_delta if expires_delta else timedelta(minutes=settings.access_token_expire_minutes)
     )
     to_encode.update({"exp": expire})
