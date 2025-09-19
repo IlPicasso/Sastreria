@@ -164,6 +164,10 @@
                 <select id="newOrderStatus"></select>
               </div>
               <div class="form-row">
+                <label for="newOrderDeliveryDate">Fecha de entrega</label>
+                <input type="date" id="newOrderDeliveryDate" />
+              </div>
+              <div class="form-row">
                 <label>Medidas guardadas del cliente</label>
                 <div id="customerMeasurementOptions" class="measurement-option-list muted">
                   Selecciona un cliente para ver sus medidas guardadas.
@@ -196,17 +200,63 @@
                   <tr>
                     <th>Orden</th>
                     <th>Cliente</th>
-                    <th>Documento</th>
-                    <th>Contacto</th>
-                    <th>Estado</th>
-                    <th>Sastre</th>
-                    <th>Medidas</th>
-                    <th>Notas</th>
+                    <th>Fecha de ingreso</th>
+                    <th>Fecha de entrega</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody id="ordersTableBody"></tbody>
               </table>
+            </div>
+            <div id="orderDetail" class="order-detail hidden">
+              <div class="order-detail-header">
+                <div>
+                  <h4>Detalle de la orden</h4>
+                  <p class="muted small">Orden <span id="orderDetailNumber"></span></p>
+                </div>
+                <button type="button" id="closeOrderDetailButton" class="link-button">Cerrar</button>
+              </div>
+              <div class="order-detail-meta">
+                <p><strong>Registrada:</strong> <span id="orderDetailCreatedAt"></span></p>
+                <p><strong>Última actualización:</strong> <span id="orderDetailUpdatedAt"></span></p>
+              </div>
+              <form id="updateOrderForm" class="form-grid">
+                <div class="form-row">
+                  <label for="orderDetailCustomer">Cliente</label>
+                  <input type="text" id="orderDetailCustomer" readonly />
+                </div>
+                <div class="form-row">
+                  <label for="orderDetailDocument">Documento</label>
+                  <input type="text" id="orderDetailDocument" readonly />
+                </div>
+                <div class="form-row">
+                  <label for="orderDetailContact">Contacto</label>
+                  <input type="text" id="orderDetailContact" />
+                </div>
+                <div class="form-row">
+                  <label for="orderDetailStatus">Estado</label>
+                  <select id="orderDetailStatus"></select>
+                </div>
+                <div class="form-row">
+                  <label for="orderDetailTailor">Sastre asignado</label>
+                  <select id="orderDetailTailor"></select>
+                </div>
+                <div class="form-row">
+                  <label for="orderDetailDeliveryDate">Fecha de entrega</label>
+                  <input type="date" id="orderDetailDeliveryDate" />
+                </div>
+                <div class="form-row">
+                  <label for="orderDetailNotes">Notas</label>
+                  <textarea id="orderDetailNotes" rows="3"></textarea>
+                </div>
+                <div class="form-row">
+                  <label>Medidas</label>
+                  <div id="orderDetailMeasurements" class="measurement-tags muted"></div>
+                </div>
+                <div class="button-row">
+                  <button type="submit" class="primary">Guardar cambios</button>
+                </div>
+              </form>
             </div>
           </section>
 
