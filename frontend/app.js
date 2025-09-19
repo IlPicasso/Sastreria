@@ -8,6 +8,7 @@ const state = {
   orders: [],
   customers: [],
   customerSearchTerm: '',
+  orderSearchTerm: '',
   isCreateCustomerVisible: false,
   auditLogs: [],
   selectedCustomerId: null,
@@ -45,6 +46,7 @@ const deleteCustomerButton = document.getElementById('deleteCustomerButton');
 const orderCustomerSelect = document.getElementById('orderCustomerSelect');
 const customerMeasurementOptions = document.getElementById('customerMeasurementOptions');
 const ordersTableBody = document.getElementById('ordersTableBody');
+const orderSearchInput = document.getElementById('orderSearchInput');
 const measurementsList = document.getElementById('measurementsList');
 const addMeasurementButton = document.getElementById('addMeasurementButton');
 const statusSelect = document.getElementById('newOrderStatus');
@@ -197,9 +199,26 @@ function normalizeText(value) {
     .trim();
 }
 
+function isOrderDelivered(status) {
+  return typeof status === 'string' && status.trim().toLowerCase() === 'entregado';
+}
+
+function isDeliveryDateOverdue(deliveryDateString, status) {
+  if (!deliveryDateString || isOrderDelivered(status)) {
+    return false;
+  }
+  const deliveryDate = new Date(deliveryDateString);
+  if (Number.isNaN(deliveryDate.getTime())) {
+    return false;
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  deliveryDate.setHours(0, 0, 0, 0);
+  return deliveryDate.getTime() < today.getTime();
+}
+
 function isDeliveryDateClose(deliveryDateString, status) {
-  if (!deliveryDateString) return false;
-  if (typeof status === 'string' && status.toLowerCase() === 'entregado') {
+  if (!deliveryDateString || isOrderDelivered(status)) {
     return false;
   }
   const deliveryDate = new Date(deliveryDateString);
@@ -210,7 +229,7 @@ function isDeliveryDateClose(deliveryDateString, status) {
   today.setHours(0, 0, 0, 0);
   deliveryDate.setHours(0, 0, 0, 0);
   const diffInDays = (deliveryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
-  return diffInDays <= DELIVERY_WARNING_DAYS;
+  return diffInDays >= 0 && diffInDays <= DELIVERY_WARNING_DAYS;
 }
 
 async function apiFetch(path, { method = 'GET', body, headers = {}, auth = true } = {}) {
@@ -701,8 +720,12 @@ async function handleLogin(event) {
     updateNavigationForAuth();
     setActiveView('staff-view');
     state.customerSearchTerm = '';
+    state.orderSearchTerm = '';
     if (customerSearchInput) {
       customerSearchInput.value = '';
+    }
+    if (orderSearchInput) {
+      orderSearchInput.value = '';
     }
     setCreateCustomerVisible(false);
     resetCreateOrderForm();
@@ -805,6 +828,7 @@ function handleLogout(auto = false) {
   state.tailors = [];
   state.customers = [];
   state.customerSearchTerm = '';
+  state.orderSearchTerm = '';
   state.isCreateCustomerVisible = false;
   state.auditLogs = [];
   state.selectedCustomerId = null;
@@ -822,6 +846,9 @@ function handleLogout(auto = false) {
   hideDashboard();
   if (customerSearchInput) {
     customerSearchInput.value = '';
+  }
+  if (orderSearchInput) {
+    orderSearchInput.value = '';
   }
   setCreateCustomerVisible(false);
   if (ordersTableBody) {
@@ -1093,6 +1120,13 @@ if (customerSearchInput) {
   });
 }
 
+if (orderSearchInput) {
+  orderSearchInput.addEventListener('input', (event) => {
+    state.orderSearchTerm = event.target.value;
+    renderOrders();
+  });
+}
+
 if (showCreateCustomerButton) {
   showCreateCustomerButton.addEventListener('click', () => {
     setCreateCustomerVisible(true);
@@ -1276,9 +1310,90 @@ if (orderCustomerSelect) {
   orderCustomerSelect.addEventListener('change', handleOrderCustomerChange);
 }
 
+function parseDateValue(value) {
+  if (!value) {
+    return null;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed;
+}
+
+function toTimestamp(value) {
+  const parsed = parseDateValue(value);
+  return parsed ? parsed.getTime() : null;
+}
+
+function compareNullableNumbers(a, b) {
+  if (a !== null && b !== null && a !== b) {
+    return a - b;
+  }
+  if (a !== null && b === null) {
+    return -1;
+  }
+  if (a === null && b !== null) {
+    return 1;
+  }
+  return 0;
+}
+
+function compareOrdersForDisplay(a, b) {
+  const aDelivered = isOrderDelivered(a.status);
+  const bDelivered = isOrderDelivered(b.status);
+  if (aDelivered !== bDelivered) {
+    return aDelivered ? 1 : -1;
+  }
+
+  const deliveryComparison = compareNullableNumbers(
+    toTimestamp(a.delivery_date),
+    toTimestamp(b.delivery_date),
+  );
+  if (deliveryComparison !== 0) {
+    return deliveryComparison;
+  }
+
+  if (!aDelivered) {
+    const createdComparison = compareNullableNumbers(
+      toTimestamp(a.created_at),
+      toTimestamp(b.created_at),
+    );
+    if (createdComparison !== 0) {
+      return createdComparison;
+    }
+  } else {
+    const updatedComparison = compareNullableNumbers(
+      toTimestamp(a.updated_at),
+      toTimestamp(b.updated_at),
+    );
+    if (updatedComparison !== 0) {
+      return updatedComparison;
+    }
+  }
+
+  const aOrder = (a.order_number || '').toString().toLowerCase();
+  const bOrder = (b.order_number || '').toString().toLowerCase();
+  const orderComparison = aOrder.localeCompare(bOrder, undefined, {
+    numeric: true,
+    sensitivity: 'base',
+  });
+  if (orderComparison !== 0) {
+    return orderComparison;
+  }
+
+  const aId = typeof a.id === 'number' ? a.id : Number(a.id) || 0;
+  const bId = typeof b.id === 'number' ? b.id : Number(b.id) || 0;
+  return aId - bId;
+}
+
 function renderOrders() {
   if (!ordersTableBody) return;
   ordersTableBody.innerHTML = '';
+  if (orderSearchInput && orderSearchInput.value !== state.orderSearchTerm) {
+    orderSearchInput.value = state.orderSearchTerm;
+  }
+
   if (!state.orders.length) {
     const row = document.createElement('tr');
     const cell = document.createElement('td');
@@ -1291,7 +1406,37 @@ function renderOrders() {
     return;
   }
 
-  state.orders.forEach((order) => {
+  const searchTerm = normalizeText(state.orderSearchTerm);
+  const filteredOrders = searchTerm
+    ? state.orders.filter((order) => {
+        const orderNumber = normalizeText(order.order_number);
+        const documentId = normalizeText(order.customer_document);
+        return orderNumber.includes(searchTerm) || documentId.includes(searchTerm);
+      })
+    : [...state.orders];
+
+  if (!filteredOrders.length) {
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = 5;
+    cell.textContent = 'No se encontraron órdenes que coincidan con la búsqueda.';
+    cell.className = 'muted';
+    row.appendChild(cell);
+    ordersTableBody.appendChild(row);
+    clearOrderDetail();
+    return;
+  }
+
+  const sortedOrders = [...filteredOrders].sort(compareOrdersForDisplay);
+
+  if (
+    state.selectedOrderId !== null &&
+    sortedOrders.every((order) => order.id !== state.selectedOrderId)
+  ) {
+    clearOrderDetail();
+  }
+
+  sortedOrders.forEach((order) => {
     const row = document.createElement('tr');
 
     const orderCell = document.createElement('td');
@@ -1306,7 +1451,9 @@ function renderOrders() {
     const deliveryCell = document.createElement('td');
     if (order.delivery_date) {
       deliveryCell.textContent = formatDateOnly(order.delivery_date);
-      if (isDeliveryDateClose(order.delivery_date, order.status)) {
+      if (isDeliveryDateOverdue(order.delivery_date, order.status)) {
+        deliveryCell.classList.add('overdue');
+      } else if (isDeliveryDateClose(order.delivery_date, order.status)) {
         deliveryCell.classList.add('due-soon');
       }
     } else {
