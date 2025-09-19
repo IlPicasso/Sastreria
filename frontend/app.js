@@ -82,6 +82,8 @@ const ROLE_LABELS = {
 const DELIVERY_WARNING_DAYS = 2;
 
 let activeDashboardTab = 'orderListPanel';
+const ORDER_TABLE_COLUMN_COUNT = 6;
+let activeOrderDetailRow = null;
 
 
 function setActiveView(viewId) {
@@ -772,15 +774,15 @@ async function loadOrders() {
   if (!state.token) return;
   try {
     state.orders = await apiFetch('/orders');
-    renderOrders();
     if (state.selectedOrderId !== null) {
       const selected = state.orders.find((order) => order.id === state.selectedOrderId);
       if (selected) {
-        populateOrderDetail(selected);
+        populateOrderDetail(selected, { skipRender: true, focusOnDetail: false });
       } else {
-        clearOrderDetail();
+        clearOrderDetail({ skipRender: true });
       }
     }
+    renderOrders();
   } catch (error) {
     showToast(error.message, 'error');
   }
@@ -861,7 +863,7 @@ function handleLogout(auto = false) {
     auditLogTableBody.innerHTML = '';
   }
   clearCustomerDetail();
-  clearOrderDetail();
+  clearOrderDetail({ skipRender: true });
   resetCreateCustomerForm();
 
   measurementsList.innerHTML = '';
@@ -994,10 +996,11 @@ function clearCustomerDetail() {
   }
 }
 
-function populateOrderDetail(order) {
+function populateOrderDetail(order, options = {}) {
   if (!orderDetail || !order) return;
+  const { skipRender = false, focusOnDetail = true } = options;
+
   state.selectedOrderId = order.id;
-  orderDetail.classList.remove('hidden');
   if (orderDetailNumberElement) {
     orderDetailNumberElement.textContent = order.order_number;
   }
@@ -1043,12 +1046,24 @@ function populateOrderDetail(order) {
       orderDetailMeasurementsContainer.textContent = 'Sin medidas registradas.';
     }
   }
+
+  if (!skipRender) {
+    renderOrders();
+    if (focusOnDetail) {
+      requestAnimationFrame(() => {
+        if (orderDetail?.isConnected) {
+          orderDetail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      });
+    }
+  }
 }
 
-function clearOrderDetail() {
+function clearOrderDetail(options = {}) {
   if (!orderDetail) return;
+  const { skipRender = false } = options;
+
   state.selectedOrderId = null;
-  orderDetail.classList.add('hidden');
   updateOrderForm?.reset();
   if (orderDetailNumberElement) orderDetailNumberElement.textContent = '';
   if (orderDetailCreatedAtElement) orderDetailCreatedAtElement.textContent = '';
@@ -1063,6 +1078,13 @@ function clearOrderDetail() {
   if (orderDetailMeasurementsContainer) {
     orderDetailMeasurementsContainer.innerHTML = '';
     orderDetailMeasurementsContainer.classList.add('muted');
+  }
+
+  removeOrderDetailRow();
+  orderDetail.classList.add('hidden');
+
+  if (!skipRender) {
+    renderOrders();
   }
 }
 
@@ -1387,8 +1409,59 @@ function compareOrdersForDisplay(a, b) {
   return aId - bId;
 }
 
+function removeOrderDetailRow() {
+  if (activeOrderDetailRow && activeOrderDetailRow.parentNode) {
+    activeOrderDetailRow.parentNode.removeChild(activeOrderDetailRow);
+  }
+  activeOrderDetailRow = null;
+}
+
+function getStatusBadgeVariant(status) {
+  if (!status) {
+    return 'neutral';
+  }
+  const normalized = status.toString().trim().toLowerCase();
+  if (!normalized) {
+    return 'neutral';
+  }
+  if (normalized.includes('entreg')) {
+    return 'success';
+  }
+  if (normalized.includes('cancel') || normalized.includes('anulad')) {
+    return 'danger';
+  }
+  if (normalized.includes('pend') || normalized.includes('espera')) {
+    return 'warning';
+  }
+  if (
+    normalized.includes('listo') ||
+    normalized.includes('termin') ||
+    normalized.includes('produc') ||
+    normalized.includes('proceso')
+  ) {
+    return 'info';
+  }
+  return 'neutral';
+}
+
+function createStatusBadge(status) {
+  const badge = document.createElement('span');
+  badge.className = 'status-badge';
+  const text = status && status.toString().trim() ? status : 'Sin estado';
+  badge.textContent = text;
+  badge.classList.add(`status-${getStatusBadgeVariant(status)}`);
+  return badge;
+}
+
+
 function renderOrders() {
   if (!ordersTableBody) return;
+
+  removeOrderDetailRow();
+  if (orderDetail) {
+    orderDetail.classList.add('hidden');
+  }
+
   ordersTableBody.innerHTML = '';
   if (orderSearchInput && orderSearchInput.value !== state.orderSearchTerm) {
     orderSearchInput.value = state.orderSearchTerm;
@@ -1397,12 +1470,12 @@ function renderOrders() {
   if (!state.orders.length) {
     const row = document.createElement('tr');
     const cell = document.createElement('td');
-    cell.colSpan = 5;
+    cell.colSpan = ORDER_TABLE_COLUMN_COUNT;
     cell.textContent = 'No hay órdenes registradas todavía.';
     cell.className = 'muted';
     row.appendChild(cell);
     ordersTableBody.appendChild(row);
-    clearOrderDetail();
+    clearOrderDetail({ skipRender: true });
     return;
   }
 
@@ -1438,12 +1511,43 @@ function renderOrders() {
 
   sortedOrders.forEach((order) => {
     const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = ORDER_TABLE_COLUMN_COUNT;
+    cell.textContent = 'No se encontraron órdenes que coincidan con la búsqueda.';
+    cell.className = 'muted';
+    row.appendChild(cell);
+    ordersTableBody.appendChild(row);
+    clearOrderDetail({ skipRender: true });
+    return;
+  }
+
+  const sortedOrders = [...filteredOrders].sort(compareOrdersForDisplay);
+
+  if (
+    state.selectedOrderId !== null &&
+    sortedOrders.every((order) => order.id !== state.selectedOrderId)
+  ) {
+    clearOrderDetail({ skipRender: true });
+  }
+
+  let hasActiveDetail = false;
+
+  sortedOrders.forEach((order) => {
+    const row = document.createElement('tr');
+    row.classList.add('order-row');
+    const isSelected = state.selectedOrderId === order.id;
+    if (isSelected) {
+      row.classList.add('is-selected');
+    }
 
     const orderCell = document.createElement('td');
     orderCell.innerHTML = `<strong>${order.order_number}</strong>`;
 
     const customerCell = document.createElement('td');
     customerCell.textContent = order.customer_name || '—';
+
+    const statusCell = document.createElement('td');
+    statusCell.appendChild(createStatusBadge(order.status));
 
     const createdCell = document.createElement('td');
     createdCell.textContent = formatDate(order.created_at);
@@ -1464,20 +1568,50 @@ function renderOrders() {
     const detailButton = document.createElement('button');
     detailButton.type = 'button';
     detailButton.className = 'secondary';
-    detailButton.textContent = 'Ver detalle';
+    detailButton.textContent = isSelected ? 'Ocultar detalle' : 'Ver detalle';
+    detailButton.setAttribute('aria-controls', 'orderDetail');
+    detailButton.setAttribute('aria-expanded', isSelected ? 'true' : 'false');
     detailButton.addEventListener('click', () => {
-      populateOrderDetail(order);
+      if (state.selectedOrderId === order.id) {
+        clearOrderDetail();
+      } else {
+        populateOrderDetail(order);
+      }
     });
     actionsCell.appendChild(detailButton);
 
     row.appendChild(orderCell);
     row.appendChild(customerCell);
+    row.appendChild(statusCell);
     row.appendChild(createdCell);
     row.appendChild(deliveryCell);
     row.appendChild(actionsCell);
 
     ordersTableBody.appendChild(row);
+
+    if (isSelected && orderDetail) {
+      const detailRow = document.createElement('tr');
+      detailRow.className = 'order-detail-row';
+      detailRow.dataset.orderId = String(order.id);
+
+      const detailCell = document.createElement('td');
+      detailCell.colSpan = ORDER_TABLE_COLUMN_COUNT;
+      detailCell.className = 'order-detail-cell';
+      detailCell.appendChild(orderDetail);
+
+      detailRow.appendChild(detailCell);
+      ordersTableBody.appendChild(detailRow);
+      activeOrderDetailRow = detailRow;
+      orderDetail.classList.remove('hidden');
+      detailButton.textContent = 'Ocultar detalle';
+      detailButton.setAttribute('aria-expanded', 'true');
+      hasActiveDetail = true;
+    }
   });
+
+  if (!hasActiveDetail && orderDetail) {
+    orderDetail.classList.add('hidden');
+  }
 }
 
 function renderAuditLogs() {
