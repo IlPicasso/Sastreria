@@ -239,15 +239,29 @@
 
           <section class="card dashboard-panel" id="orderListPanel">
             <h3>Órdenes registradas</h3>
-            <p class="muted small">
-              Las fechas próximas de entrega se subrayan en rojo cuando la orden aún no está entregada.
-            </p>
+            <div class="order-panel-controls">
+              <p class="muted small">
+                Las órdenes pendientes se muestran primero, ordenadas por la fecha de entrega más
+                cercana. Las fechas vencidas se resaltan en rojo mientras la orden no haya sido
+                entregada.
+              </p>
+              <div class="order-search">
+                <label for="orderSearchInput">Buscar</label>
+                <input
+                  type="search"
+                  id="orderSearchInput"
+                  placeholder="Número de orden o cédula"
+                  autocomplete="off"
+                />
+              </div>
+            </div>
             <div class="table-wrapper">
               <table>
                 <thead>
                   <tr>
                     <th>Orden</th>
                     <th>Cliente</th>
+                    <th>Estado</th>
                     <th>Fecha de ingreso</th>
                     <th>Fecha de entrega</th>
                     <th>Acciones</th>
