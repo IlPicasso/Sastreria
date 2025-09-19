@@ -13,9 +13,11 @@ from typing import Iterable, List, Optional, Sequence, Tuple
 
 from sqlalchemy import MetaData, Table, delete, inspect, select
 
+
 from sqlalchemy.orm import Session
 
 from app import crud, models, schemas
+from app.timezone import now
 from app.database import Base, SessionLocal, engine
 
 FIRST_NAMES: Sequence[str] = (
@@ -219,7 +221,7 @@ def random_password(length: int = 10) -> str:
 
 
 def random_delivery_date(status: models.OrderStatus) -> date | None:
-    today = date.today()
+    today = now().date()
     if status == models.OrderStatus.ENTREGADO:
         return today - timedelta(days=random.randint(1, 30))
     if status in {
@@ -358,6 +360,7 @@ def seed_orders(
         raise RuntimeError(
             "No se pudo reflejar la tabla de órdenes para establecer 'entry_date'."
         )
+
 
     orders: List[models.Order] = []
     for _ in range(count):
