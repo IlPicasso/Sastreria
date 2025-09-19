@@ -1453,6 +1453,7 @@ function createStatusBadge(status) {
   return badge;
 }
 
+
 function renderOrders() {
   if (!ordersTableBody) return;
 
@@ -1488,6 +1489,27 @@ function renderOrders() {
     : [...state.orders];
 
   if (!filteredOrders.length) {
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = 5;
+    cell.textContent = 'No se encontraron órdenes que coincidan con la búsqueda.';
+    cell.className = 'muted';
+    row.appendChild(cell);
+    ordersTableBody.appendChild(row);
+    clearOrderDetail();
+    return;
+  }
+
+  const sortedOrders = [...filteredOrders].sort(compareOrdersForDisplay);
+
+  if (
+    state.selectedOrderId !== null &&
+    sortedOrders.every((order) => order.id !== state.selectedOrderId)
+  ) {
+    clearOrderDetail();
+  }
+
+  sortedOrders.forEach((order) => {
     const row = document.createElement('tr');
     const cell = document.createElement('td');
     cell.colSpan = ORDER_TABLE_COLUMN_COUNT;
