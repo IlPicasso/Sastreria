@@ -169,54 +169,66 @@
                 </div>
               </form>
             </div>
-            <div class="customer-layout">
-              <div class="customer-column">
-                <h4>Clientes registrados</h4>
-                <div class="table-wrapper">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Nombre</th>
-                        <th>Documento</th>
-                        <th>Teléfono</th>
-                        <th>Medidas</th>
-                        <th>Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody id="customersTableBody"></tbody>
-                  </table>
+            <div class="customer-list">
+              <h4>Clientes registrados</h4>
+              <div class="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>Documento</th>
+                      <th>Teléfono</th>
+                      <th>Órdenes previas</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="customersTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div id="customerDetail" class="customer-detail hidden" aria-live="polite">
+              <div class="customer-detail-header">
+                <div>
+                  <h4 id="customerDetailTitle">Detalle del cliente</h4>
+                  <p id="customerDetailSummary" class="muted small">
+                    Selecciona un cliente para ver su información.
+                  </p>
+                </div>
+                <button type="button" class="link-button" id="closeCustomerDetailButton">
+                  Cerrar
+                </button>
+              </div>
+              <div class="customer-order-history">
+                <h5>Órdenes registradas</h5>
+                <div id="customerOrderHistory" class="customer-order-history-list muted">
+                  Selecciona un cliente para ver sus órdenes anteriores.
                 </div>
               </div>
-              <div class="customer-column">
-                <div id="customerDetail" class="customer-detail hidden">
-                  <h4>Detalle del cliente</h4>
-                  <form id="updateCustomerForm" class="form-grid">
-                    <div class="form-row">
-                      <label for="updateCustomerName">Nombre completo</label>
-                      <input type="text" id="updateCustomerName" required />
-                    </div>
-                    <div class="form-row">
-                      <label for="updateCustomerDocument">Cédula o identificación</label>
-                      <input type="text" id="updateCustomerDocument" required />
-                    </div>
-                    <div class="form-row">
-                      <label for="updateCustomerPhone">Teléfono</label>
-                      <input type="text" id="updateCustomerPhone" />
-                    </div>
-                    <div class="form-row">
-                      <label>Conjuntos de medidas</label>
-                      <div id="updateCustomerMeasurementsContainer" class="measurement-set-list"></div>
-                      <button type="button" id="addUpdateCustomerMeasurementSet" class="secondary">
-                        Agregar conjunto
-                      </button>
-                    </div>
-                    <div class="button-row">
-                      <button type="submit" class="primary">Guardar cambios</button>
-                      <button type="button" id="deleteCustomerButton" class="danger">Eliminar cliente</button>
-                    </div>
-                  </form>
+              <form id="updateCustomerForm" class="form-grid">
+                <div class="form-row">
+                  <label for="updateCustomerName">Nombre completo</label>
+                  <input type="text" id="updateCustomerName" required />
                 </div>
-              </div>
+                <div class="form-row">
+                  <label for="updateCustomerDocument">Cédula o identificación</label>
+                  <input type="text" id="updateCustomerDocument" required />
+                </div>
+                <div class="form-row">
+                  <label for="updateCustomerPhone">Teléfono</label>
+                  <input type="text" id="updateCustomerPhone" />
+                </div>
+                <div class="form-row">
+                  <label>Conjuntos de medidas</label>
+                  <div id="updateCustomerMeasurementsContainer" class="measurement-set-list"></div>
+                  <button type="button" id="addUpdateCustomerMeasurementSet" class="secondary">
+                    Agregar conjunto
+                  </button>
+                </div>
+                <div class="button-row">
+                  <button type="submit" class="primary">Guardar cambios</button>
+                  <button type="button" id="deleteCustomerButton" class="danger">Eliminar cliente</button>
+                </div>
+              </form>
             </div>
           </section>
 
