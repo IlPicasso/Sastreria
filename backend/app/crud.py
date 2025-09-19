@@ -53,6 +53,7 @@ def serialize_order(order: Optional[models.Order]) -> Optional[Dict[str, Any]]:
         "measurements": order.measurements,
         "notes": order.notes,
         "assigned_tailor_id": order.assigned_tailor_id,
+        "delivery_date": order.delivery_date.isoformat() if order.delivery_date else None,
         "created_at": order.created_at.isoformat() if order.created_at else None,
         "updated_at": order.updated_at.isoformat() if order.updated_at else None,
     }
@@ -241,6 +242,7 @@ def create_order(db: Session, order_in: schemas.OrderCreate) -> models.Order:
         measurements=_measurements_to_dicts(order_in.measurements),
         notes=order_in.notes,
         assigned_tailor_id=order_in.assigned_tailor_id,
+        delivery_date=order_in.delivery_date,
     )
     db.add(db_order)
     db.commit()

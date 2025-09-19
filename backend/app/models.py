@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import Column, Date, DateTime, Enum, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import relationship
 
 from .database import Base
@@ -60,6 +60,7 @@ class Order(Base):
     measurements = Column(JSON, nullable=False, default=list)
     notes = Column(Text, nullable=True)
     assigned_tailor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    delivery_date = Column(Date, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(
         DateTime,
