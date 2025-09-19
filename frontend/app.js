@@ -7,18 +7,12 @@ const state = {
   tailors: [],
   orders: [],
   customers: [],
-  allCustomers: [],
   auditLogs: [],
   selectedCustomerId: null,
-  customerSearchTerm: '',
-  orderCustomerSelection: null,
-  orderCustomerResults: [],
 };
 
 const views = document.querySelectorAll('.view');
 const navButtons = document.querySelectorAll('.nav-button');
-const dashboardTabButtons = document.querySelectorAll('.dashboard-tab');
-const dashboardPanels = document.querySelectorAll('.dashboard-panel');
 const orderLookupForm = document.getElementById('orderLookupForm');
 const orderNumberInput = document.getElementById('orderNumber');
 const orderDocumentInput = document.getElementById('customerDocument');
@@ -37,6 +31,7 @@ const updateCustomerMeasurementsContainer = document.getElementById('updateCusto
 const addCustomerMeasurementSetButton = document.getElementById('addCustomerMeasurementSet');
 const addUpdateCustomerMeasurementSetButton = document.getElementById('addUpdateCustomerMeasurementSet');
 const deleteCustomerButton = document.getElementById('deleteCustomerButton');
+const orderCustomerSelect = document.getElementById('orderCustomerSelect');
 const customerMeasurementOptions = document.getElementById('customerMeasurementOptions');
 const ordersTableBody = document.getElementById('ordersTableBody');
 const measurementsList = document.getElementById('measurementsList');
@@ -47,21 +42,8 @@ const toastElement = document.getElementById('toast');
 const currentYearElement = document.getElementById('currentYear');
 const currentUserNameElement = document.getElementById('currentUserName');
 const currentUserRoleElement = document.getElementById('currentUserRole');
-const auditLogPanel = document.getElementById('auditLogPanel');
+const auditLogSection = document.getElementById('auditLogSection');
 const auditLogTableBody = document.getElementById('auditLogTableBody');
-const auditLogTabButton = document.getElementById('auditLogTabButton');
-const customerSearchForm = document.getElementById('customerSearchForm');
-const customerSearchInput = document.getElementById('customerSearchInput');
-const customerSearchClear = document.getElementById('customerSearchClear');
-const orderCustomerSearchInput = document.getElementById('orderCustomerSearch');
-const orderCustomerResults = document.getElementById('orderCustomerResults');
-const orderCustomerIdInput = document.getElementById('orderCustomerId');
-const orderCustomerClearButton = document.getElementById('orderCustomerClear');
-const orderEntryDateInput = document.getElementById('newOrderEntryDate');
-const orderDeliveryDateInput = document.getElementById('newOrderDeliveryDate');
-const newCustomerDocumentInput = document.getElementById('newCustomerDocument');
-const newCustomerNameInput = document.getElementById('newCustomerName');
-const newCustomerContactInput = document.getElementById('newCustomerContact');
 
 const ROLE_LABELS = {
   administrador: 'Administrador',
@@ -86,29 +68,6 @@ navButtons.forEach((btn) => {
   btn.addEventListener('click', () => setActiveView(btn.dataset.view));
 });
 
-let activeDashboardTab = 'customersListPanel';
-let orderCustomerSearchTimeout = null;
-let suppressOrderSearch = false;
-
-function setActiveDashboardTab(tabId) {
-  if (!tabId) return;
-  let resolvedTab = tabId;
-  if (resolvedTab === 'auditLogPanel' && auditLogTabButton?.classList.contains('hidden')) {
-    resolvedTab = 'customersListPanel';
-  }
-  activeDashboardTab = resolvedTab;
-  dashboardTabButtons.forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.tab === resolvedTab);
-  });
-  dashboardPanels.forEach((panel) => {
-    panel.classList.toggle('hidden', panel.id !== resolvedTab);
-  });
-}
-
-dashboardTabButtons.forEach((btn) => {
-  btn.addEventListener('click', () => setActiveDashboardTab(btn.dataset.tab));
-});
-
 if (currentYearElement) {
   currentYearElement.textContent = new Date().getFullYear();
 }
@@ -131,32 +90,6 @@ function formatDate(dateString) {
   } catch (error) {
     return dateString;
   }
-}
-
-function formatDateOnly(dateString) {
-  if (!dateString) {
-    return '—';
-  }
-  try {
-    return new Date(dateString).toLocaleDateString('es-EC', {
-      dateStyle: 'medium',
-    });
-  } catch (error) {
-    return dateString;
-  }
-}
-
-function toInputDateValue(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-  return date.toISOString().slice(0, 10);
-}
-
-function getTodayInputValue() {
-  return new Date().toISOString().slice(0, 10);
 }
 
 async function apiFetch(path, { method = 'GET', body, headers = {}, auth = true } = {}) {
@@ -291,6 +224,23 @@ function populateTailorSelect(selectElement, selectedId = '') {
   });
 }
 
+function populateCustomerSelect(selectElement, selectedId = '') {
+  if (!selectElement) return;
+  selectElement.innerHTML = '';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Selecciona un cliente';
+  selectElement.appendChild(placeholder);
+  state.customers.forEach((customer) => {
+    const option = document.createElement('option');
+    option.value = String(customer.id);
+    option.textContent = `${customer.full_name} (${customer.document_id})`;
+    if (selectedId && String(selectedId) === String(customer.id)) {
+      option.selected = true;
+    }
+    selectElement.appendChild(option);
+  });
+}
 function addMeasurementRow(data = { nombre: '', valor: '' }) {
   const row = document.createElement('div');
   row.className = 'measurement-row';
@@ -442,122 +392,18 @@ function collectMeasurements() {
     .filter(Boolean);
 }
 
-function hideOrderCustomerResults() {
-  if (!orderCustomerResults) return;
-  orderCustomerResults.classList.add('hidden');
-  orderCustomerResults.innerHTML = '';
-}
-
-function renderOrderCustomerResultsList(results) {
-  if (!orderCustomerResults) return;
-  orderCustomerResults.innerHTML = '';
-  state.orderCustomerResults = results;
-  if (!results.length) {
-    const empty = document.createElement('div');
-    empty.className = 'search-empty';
-    empty.textContent = 'No se encontraron coincidencias.';
-    orderCustomerResults.appendChild(empty);
-  } else {
-    results.slice(0, 10).forEach((customer) => {
-      const item = document.createElement('button');
-      item.type = 'button';
-      item.className = 'search-result-item';
-      const title = document.createElement('span');
-      title.className = 'search-result-title';
-      title.textContent = customer.full_name;
-      item.appendChild(title);
-
-      const documentLabel = document.createElement('span');
-      documentLabel.className = 'search-result-meta';
-      documentLabel.textContent = customer.document_id || 'Sin documento';
-      item.appendChild(documentLabel);
-
-      if (customer.phone) {
-        const phoneLabel = document.createElement('span');
-        phoneLabel.className = 'search-result-meta';
-        phoneLabel.textContent = customer.phone;
-        item.appendChild(phoneLabel);
-      }
-      item.addEventListener('click', () => {
-        applyOrderCustomerSelection(customer);
-      });
-      orderCustomerResults.appendChild(item);
-    });
-  }
-  orderCustomerResults.classList.remove('hidden');
-}
-
-function clearOrderCustomerSelection({ preserveSearchValue = false } = {}) {
-  state.orderCustomerSelection = null;
-  if (orderCustomerIdInput) {
-    orderCustomerIdInput.value = '';
-  }
-  if (!preserveSearchValue && orderCustomerSearchInput) {
-    orderCustomerSearchInput.value = '';
-  }
-  state.orderCustomerResults = [];
-  hideOrderCustomerResults();
-  if (orderCustomerClearButton) {
-    orderCustomerClearButton.classList.add('hidden');
-  }
-  if (newCustomerDocumentInput) {
-    newCustomerDocumentInput.value = '';
-  }
-  if (newCustomerNameInput) {
-    newCustomerNameInput.value = '';
-  }
-  if (newCustomerContactInput) {
-    newCustomerContactInput.value = '';
-  }
-  renderCustomerMeasurementOptions(null);
-}
-
-function applyOrderCustomerSelection(customer, { skipNotification = false } = {}) {
-  state.orderCustomerSelection = customer;
-  if (orderCustomerIdInput) {
-    orderCustomerIdInput.value = customer.id ? String(customer.id) : '';
-  }
-  if (orderCustomerSearchInput) {
-    suppressOrderSearch = true;
-    orderCustomerSearchInput.value = `${customer.full_name}${
-      customer.document_id ? ` (${customer.document_id})` : ''
-    }`;
-    setTimeout(() => {
-      suppressOrderSearch = false;
-    }, 0);
-  }
-  if (orderCustomerClearButton) {
-    orderCustomerClearButton.classList.remove('hidden');
-  }
-  if (newCustomerDocumentInput) {
-    newCustomerDocumentInput.value = customer.document_id || '';
-  }
-  if (newCustomerNameInput) {
-    newCustomerNameInput.value = customer.full_name || '';
-  }
-  if (newCustomerContactInput) {
-    newCustomerContactInput.value = customer.phone || '';
-  }
-  renderCustomerMeasurementOptions(customer);
-  hideOrderCustomerResults();
-  state.orderCustomerResults = [];
-  if (!skipNotification) {
-    showToast(`Cliente "${customer.full_name}" seleccionado.`, 'success');
-  }
-}
-
 function resetCreateOrderForm() {
   if (!createOrderForm) return;
   createOrderForm.reset();
   populateStatusSelect(statusSelect);
   populateTailorSelect(assignTailorSelect);
-  clearOrderCustomerSelection();
-  if (orderEntryDateInput) {
-    orderEntryDateInput.value = getTodayInputValue();
-  }
-  if (orderDeliveryDateInput) {
-    orderDeliveryDateInput.value = '';
-  }
+  populateCustomerSelect(orderCustomerSelect);
+  const documentInput = document.getElementById('newCustomerDocument');
+  const nameInput = document.getElementById('newCustomerName');
+  const contactInput = document.getElementById('newCustomerContact');
+  if (documentInput) documentInput.value = '';
+  if (nameInput) nameInput.value = '';
+  if (contactInput) contactInput.value = '';
   measurementsList.innerHTML = '';
   addMeasurementRow();
   renderCustomerMeasurementOptions(null);
@@ -648,18 +494,12 @@ function updateUserInfo() {
       deleteCustomerButton.classList.add('hidden');
     }
   }
-  if (auditLogTabButton) {
+  if (auditLogSection) {
     if (state.user.role === 'administrador') {
-      auditLogTabButton.classList.remove('hidden');
+      auditLogSection.classList.remove('hidden');
     } else {
-      auditLogTabButton.classList.add('hidden');
-      if (activeDashboardTab === 'auditLogPanel') {
-        setActiveDashboardTab('customersListPanel');
-      }
+      auditLogSection.classList.add('hidden');
     }
-  }
-  if (auditLogPanel && state.user.role !== 'administrador') {
-    auditLogPanel.classList.add('hidden');
   }
 }
 
@@ -670,7 +510,6 @@ function showDashboard() {
   if (staffLoginCard) {
     staffLoginCard.classList.add('hidden');
   }
-  setActiveDashboardTab(activeDashboardTab || 'customersListPanel');
 }
 
 function hideDashboard() {
@@ -680,8 +519,6 @@ function hideDashboard() {
   if (staffLoginCard) {
     staffLoginCard.classList.remove('hidden');
   }
-  activeDashboardTab = 'customersListPanel';
-  setActiveDashboardTab(activeDashboardTab);
 }
 
 async function handleLogin(event) {
@@ -743,20 +580,12 @@ async function loadOrders() {
   }
 }
 
-async function loadCustomers(searchTerm = '') {
+async function loadCustomers() {
   if (!state.token) return;
   try {
-    const params = new URLSearchParams();
-    if (searchTerm) {
-      params.append('search', searchTerm);
-    }
-    const customers = await apiFetch(`/customers${params.toString() ? `?${params.toString()}` : ''}`);
-    if (!searchTerm) {
-      state.allCustomers = customers;
-    }
-    state.customers = customers;
-    state.customerSearchTerm = searchTerm;
+    state.customers = await apiFetch('/customers');
     renderCustomers();
+    populateCustomerSelect(orderCustomerSelect, state.selectedCustomerId);
     if (state.selectedCustomerId) {
       const selected = state.customers.find((customer) => customer.id === state.selectedCustomerId);
       if (selected) {
@@ -766,15 +595,6 @@ async function loadCustomers(searchTerm = '') {
       }
     } else {
       clearCustomerDetail();
-    }
-    if (state.orderCustomerSelection && !searchTerm) {
-      const updated = state.customers.find((customer) => customer.id === state.orderCustomerSelection?.id);
-      if (updated) {
-        state.orderCustomerSelection = updated;
-        applyOrderCustomerSelection(updated, { skipNotification: true });
-      } else {
-        clearOrderCustomerSelection({ preserveSearchValue: true });
-      }
     }
   } catch (error) {
     showToast(error.message, 'error');
@@ -801,14 +621,13 @@ function handleLogout(auto = false) {
   state.orders = [];
   state.tailors = [];
   state.customers = [];
-  state.allCustomers = [];
   state.auditLogs = [];
   state.selectedCustomerId = null;
-  state.customerSearchTerm = '';
-  state.orderCustomerSelection = null;
-  state.orderCustomerResults = [];
   if (assignTailorSelect) {
     populateTailorSelect(assignTailorSelect);
+  }
+  if (orderCustomerSelect) {
+    populateCustomerSelect(orderCustomerSelect);
   }
   hideDashboard();
   if (ordersTableBody) {
@@ -820,22 +639,11 @@ function handleLogout(auto = false) {
   if (auditLogTableBody) {
     auditLogTableBody.innerHTML = '';
   }
-  if (customerSearchInput) {
-    customerSearchInput.value = '';
-  }
   clearCustomerDetail();
   resetCreateCustomerForm();
   measurementsList.innerHTML = '';
   ensureMeasurementRow();
   renderCustomerMeasurementOptions(null);
-  clearOrderCustomerSelection();
-  if (orderEntryDateInput) {
-    orderEntryDateInput.value = '';
-  }
-  if (orderDeliveryDateInput) {
-    orderDeliveryDateInput.value = '';
-  }
-  hideOrderCustomerResults();
   clearOrderResult();
   if (auto) {
     showToast('La sesión ha expirado, vuelve a iniciar sesión.', 'error');
@@ -855,16 +663,11 @@ if (logoutButton) {
 function renderCustomers() {
   if (!customersTableBody) return;
   customersTableBody.innerHTML = '';
-  if (customerSearchInput && customerSearchInput.value !== state.customerSearchTerm) {
-    customerSearchInput.value = state.customerSearchTerm;
-  }
   if (!state.customers.length) {
     const row = document.createElement('tr');
     const cell = document.createElement('td');
     cell.colSpan = 5;
-    cell.textContent = state.customerSearchTerm
-      ? `No se encontraron clientes que coincidan con "${state.customerSearchTerm}".`
-      : 'No hay clientes registrados aún.';
+    cell.textContent = 'No hay clientes registrados aún.';
     cell.className = 'muted';
     row.appendChild(cell);
     customersTableBody.appendChild(row);
@@ -947,24 +750,6 @@ if (addUpdateCustomerMeasurementSetButton) {
   });
 }
 
-if (customerSearchForm) {
-  customerSearchForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const term = customerSearchInput?.value.trim() || '';
-    await loadCustomers(term);
-  });
-}
-
-if (customerSearchClear) {
-  customerSearchClear.addEventListener('click', async () => {
-    if (customerSearchInput) {
-      customerSearchInput.value = '';
-      customerSearchInput.focus();
-    }
-    await loadCustomers();
-  });
-}
-
 if (createCustomerForm) {
   createCustomerForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -988,7 +773,7 @@ if (createCustomerForm) {
           measurements,
         },
       });
-      await loadCustomers(state.customerSearchTerm);
+      await loadCustomers();
       resetCreateCustomerForm();
       showToast('Cliente registrado correctamente.', 'success');
     } catch (error) {
@@ -1022,7 +807,7 @@ if (updateCustomerForm) {
           measurements,
         },
       });
-      await loadCustomers(state.customerSearchTerm);
+      await loadCustomers();
       const refreshed = state.customers.find((customer) => customer.id === state.selectedCustomerId);
       if (refreshed) {
         populateCustomerDetail(refreshed);
@@ -1046,7 +831,7 @@ if (deleteCustomerButton) {
       await apiFetch(`/customers/${state.selectedCustomerId}`, { method: 'DELETE' });
       showToast('Cliente eliminado correctamente.', 'success');
       state.selectedCustomerId = null;
-      await loadCustomers(state.customerSearchTerm);
+      await loadCustomers();
     } catch (error) {
       showToast(error.message, 'error');
     }
@@ -1055,24 +840,17 @@ if (deleteCustomerButton) {
 async function createOrder(event) {
   event.preventDefault();
   const newOrderNumber = document.getElementById('newOrderNumber').value.trim();
-  const selectedCustomerId = orderCustomerIdInput?.value ? Number(orderCustomerIdInput.value) : NaN;
-  const newCustomerName = newCustomerNameInput?.value.trim() || '';
-  const newCustomerDocument = newCustomerDocumentInput?.value.trim() || '';
-  const newCustomerContact = newCustomerContactInput?.value.trim() || '';
+  const selectedCustomerId = Number(orderCustomerSelect.value);
+  const newCustomerName = document.getElementById('newCustomerName').value.trim();
+  const newCustomerDocument = document.getElementById('newCustomerDocument').value.trim();
+  const newCustomerContact = document.getElementById('newCustomerContact').value.trim();
   const newOrderStatus = document.getElementById('newOrderStatus').value;
   const newOrderNotes = document.getElementById('newOrderNotes').value.trim();
   const assignedTailorId = assignTailorSelect.value ? Number(assignTailorSelect.value) : null;
   const measurements = collectMeasurements();
-  const entryDateValue = orderEntryDateInput?.value;
-  const deliveryDateValue = orderDeliveryDateInput?.value;
 
-  if (!selectedCustomerId || Number.isNaN(selectedCustomerId)) {
+  if (!selectedCustomerId) {
     showToast('Selecciona un cliente para registrar la orden.', 'error');
-    return;
-  }
-
-  if (!entryDateValue) {
-    showToast('La fecha de ingreso de la orden es obligatoria.', 'error');
     return;
   }
 
@@ -1091,8 +869,6 @@ async function createOrder(event) {
         notes: newOrderNotes || null,
         measurements,
         assigned_tailor_id: assignedTailorId,
-        entry_date: entryDateValue,
-        delivery_date: deliveryDateValue || null,
       },
     });
     await loadOrders();
@@ -1109,62 +885,28 @@ if (createOrderForm) {
   createOrderForm.addEventListener('submit', createOrder);
 }
 
-if (orderCustomerClearButton) {
-  orderCustomerClearButton.addEventListener('click', () => {
-    clearOrderCustomerSelection();
-    if (orderCustomerSearchInput) {
-      orderCustomerSearchInput.focus();
-    }
-  });
-}
-
-if (orderCustomerSearchInput) {
-  orderCustomerSearchInput.addEventListener('input', (event) => {
-    if (suppressOrderSearch) return;
-    const term = event.target.value.trim();
-    if (state.orderCustomerSelection) {
-      clearOrderCustomerSelection({ preserveSearchValue: true });
-    }
-    if (orderCustomerSearchTimeout) {
-      clearTimeout(orderCustomerSearchTimeout);
-    }
-    if (term.length < 2) {
-      state.orderCustomerResults = [];
-      if (!term) {
-        hideOrderCustomerResults();
-      }
-      return;
-    }
-    orderCustomerSearchTimeout = setTimeout(async () => {
-      try {
-        const params = new URLSearchParams({ search: term });
-        const results = await apiFetch(`/customers?${params.toString()}`);
-        renderOrderCustomerResultsList(results);
-      } catch (error) {
-        hideOrderCustomerResults();
-        showToast(error.message, 'error');
-      }
-    }, 250);
-  });
-
-  orderCustomerSearchInput.addEventListener('focus', () => {
-    if (state.orderCustomerResults.length) {
-      renderOrderCustomerResultsList(state.orderCustomerResults);
-    }
-  });
-}
-
-document.addEventListener('click', (event) => {
-  if (!orderCustomerResults || !orderCustomerSearchInput) return;
-  if (
-    orderCustomerResults.contains(event.target) ||
-    orderCustomerSearchInput.contains(event.target) ||
-    orderCustomerClearButton?.contains(event.target)
-  ) {
+function handleOrderCustomerChange() {
+  const selectedId = Number(orderCustomerSelect.value);
+  const customer = state.customers.find((item) => item.id === selectedId);
+  const documentInput = document.getElementById('newCustomerDocument');
+  const nameInput = document.getElementById('newCustomerName');
+  const contactInput = document.getElementById('newCustomerContact');
+  if (!customer) {
+    if (documentInput) documentInput.value = '';
+    if (nameInput) nameInput.value = '';
+    if (contactInput) contactInput.value = '';
+    renderCustomerMeasurementOptions(null);
     return;
   }
-  hideOrderCustomerResults();
-});
+  if (documentInput) documentInput.value = customer.document_id || '';
+  if (nameInput) nameInput.value = customer.full_name || '';
+  if (contactInput) contactInput.value = customer.phone || '';
+  renderCustomerMeasurementOptions(customer);
+}
+
+if (orderCustomerSelect) {
+  orderCustomerSelect.addEventListener('change', handleOrderCustomerChange);
+}
 
 function createStatusSelect(currentStatus) {
   const select = document.createElement('select');
@@ -1184,7 +926,7 @@ function renderOrders() {
   if (!state.orders.length) {
     const row = document.createElement('tr');
     const cell = document.createElement('td');
-    cell.colSpan = 11;
+    cell.colSpan = 9;
     cell.textContent = 'No hay órdenes registradas todavía.';
     cell.className = 'muted';
     row.appendChild(cell);
@@ -1195,12 +937,8 @@ function renderOrders() {
   state.orders.forEach((order) => {
     const row = document.createElement('tr');
 
-    const entryDateRaw = order.entry_date || order.created_at;
     const orderCell = document.createElement('td');
-    orderCell.innerHTML = `
-      <strong>${order.order_number}</strong><br />
-      <small>Ingreso: ${formatDateOnly(entryDateRaw)}</small>
-    `;
+    orderCell.innerHTML = `<strong>${order.order_number}</strong><br /><small>${formatDate(order.created_at)}</small>`;
 
     const customerCell = document.createElement('td');
     customerCell.textContent = order.customer_name;
@@ -1213,18 +951,6 @@ function renderOrders() {
     contactInput.type = 'text';
     contactInput.value = order.customer_contact || '';
     contactCell.appendChild(contactInput);
-
-    const entryCell = document.createElement('td');
-    const entryInput = document.createElement('input');
-    entryInput.type = 'date';
-    entryInput.value = toInputDateValue(entryDateRaw);
-    entryCell.appendChild(entryInput);
-
-    const deliveryCell = document.createElement('td');
-    const deliveryInput = document.createElement('input');
-    deliveryInput.type = 'date';
-    deliveryInput.value = toInputDateValue(order.delivery_date);
-    deliveryCell.appendChild(deliveryInput);
 
     const statusCell = document.createElement('td');
     const statusSelector = createStatusSelect(order.status);
@@ -1258,11 +984,6 @@ function renderOrders() {
     saveButton.textContent = 'Guardar';
     saveButton.addEventListener('click', async () => {
       saveButton.disabled = true;
-      if (!entryInput.value) {
-        showToast('La fecha de ingreso no puede estar vacía.', 'error');
-        saveButton.disabled = false;
-        return;
-      }
       try {
         await apiFetch(`/orders/${order.id}`, {
           method: 'PATCH',
@@ -1271,8 +992,6 @@ function renderOrders() {
             assigned_tailor_id: tailorSelector.value ? Number(tailorSelector.value) : null,
             customer_contact: contactInput.value.trim() || null,
             notes: notesTextarea.value.trim() || null,
-            entry_date: entryInput.value,
-            delivery_date: deliveryInput.value || null,
           },
         });
         showToast('Orden actualizada.', 'success');
@@ -1289,8 +1008,6 @@ function renderOrders() {
     row.appendChild(customerCell);
     row.appendChild(documentCell);
     row.appendChild(contactCell);
-    row.appendChild(entryCell);
-    row.appendChild(deliveryCell);
     row.appendChild(statusCell);
     row.appendChild(tailorCell);
     row.appendChild(measurementsCell);
@@ -1363,9 +1080,6 @@ function initialise() {
   ensureMeasurementRow();
   if (customerMeasurementsContainer && !customerMeasurementsContainer.children.length) {
     createMeasurementSetBlock(customerMeasurementsContainer);
-  }
-  if (orderEntryDateInput && !orderEntryDateInput.value) {
-    orderEntryDateInput.value = getTodayInputValue();
   }
 }
 
