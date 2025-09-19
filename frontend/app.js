@@ -14,6 +14,8 @@ const state = {
 
 const views = document.querySelectorAll('.view');
 const navButtons = document.querySelectorAll('.nav-button');
+const dashboardTabButtons = document.querySelectorAll('.dashboard-tab');
+const dashboardPanels = document.querySelectorAll('.dashboard-panel');
 const orderLookupForm = document.getElementById('orderLookupForm');
 const orderNumberInput = document.getElementById('orderNumber');
 const orderDocumentInput = document.getElementById('customerDocument');
@@ -58,7 +60,7 @@ const toastElement = document.getElementById('toast');
 const currentYearElement = document.getElementById('currentYear');
 const currentUserNameElement = document.getElementById('currentUserName');
 const currentUserRoleElement = document.getElementById('currentUserRole');
-const auditLogSection = document.getElementById('auditLogSection');
+const auditLogTabButton = document.getElementById('auditLogTabButton');
 const auditLogTableBody = document.getElementById('auditLogTableBody');
 
 const ROLE_LABELS = {
@@ -68,6 +70,9 @@ const ROLE_LABELS = {
 };
 
 const DELIVERY_WARNING_DAYS = 2;
+
+let activeDashboardTab = 'orderListPanel';
+
 
 function setActiveView(viewId) {
   views.forEach((view) => {
@@ -85,6 +90,27 @@ function setActiveView(viewId) {
 navButtons.forEach((btn) => {
   btn.addEventListener('click', () => setActiveView(btn.dataset.view));
 });
+
+function setActiveDashboardTab(tabId = 'orderListPanel') {
+  if (!dashboardPanels.length) return;
+  let targetTab = tabId || 'orderListPanel';
+  if (targetTab === 'auditLogPanel' && state.user?.role !== 'administrador') {
+    targetTab = 'orderListPanel';
+  }
+  activeDashboardTab = targetTab;
+  dashboardTabButtons.forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.tab === targetTab);
+  });
+  dashboardPanels.forEach((panel) => {
+    panel.classList.toggle('hidden', panel.id !== targetTab);
+  });
+}
+
+dashboardTabButtons.forEach((btn) => {
+  btn.addEventListener('click', () => setActiveDashboardTab(btn.dataset.tab));
+});
+
+setActiveDashboardTab(activeDashboardTab);
 
 if (currentYearElement) {
   currentYearElement.textContent = new Date().getFullYear();
@@ -553,12 +579,12 @@ function updateUserInfo() {
       deleteCustomerButton.classList.add('hidden');
     }
   }
-  if (auditLogSection) {
-    if (state.user.role === 'administrador') {
-      auditLogSection.classList.remove('hidden');
-    } else {
-      auditLogSection.classList.add('hidden');
-    }
+  const isAdmin = state.user.role === 'administrador';
+  if (auditLogTabButton) {
+    auditLogTabButton.classList.toggle('hidden', !isAdmin);
+  }
+  if (!isAdmin && activeDashboardTab === 'auditLogPanel') {
+    setActiveDashboardTab('orderListPanel');
   }
 }
 
@@ -569,6 +595,7 @@ function showDashboard() {
   if (staffLoginCard) {
     staffLoginCard.classList.add('hidden');
   }
+  setActiveDashboardTab('orderListPanel');
 }
 
 function hideDashboard() {
@@ -712,6 +739,10 @@ function handleLogout(auto = false) {
   if (orderCustomerSelect) {
     populateCustomerSelect(orderCustomerSelect);
   }
+  if (auditLogTabButton) {
+    auditLogTabButton.classList.add('hidden');
+  }
+  setActiveDashboardTab('orderListPanel');
   hideDashboard();
   if (ordersTableBody) {
     ordersTableBody.innerHTML = '';
@@ -1137,6 +1168,7 @@ function renderOrders() {
 
     const createdCell = document.createElement('td');
     createdCell.textContent = formatDate(order.created_at);
+
 
     const deliveryCell = document.createElement('td');
     if (order.delivery_date) {

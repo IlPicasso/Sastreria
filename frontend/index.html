@@ -61,7 +61,21 @@
             </div>
           </div>
 
-          <section class="card" id="customersCard">
+          <nav class="dashboard-subnav">
+            <button type="button" class="dashboard-tab active" data-tab="orderListPanel">Órdenes registradas</button>
+            <button type="button" class="dashboard-tab" data-tab="orderCreatePanel">Crear orden</button>
+            <button type="button" class="dashboard-tab" data-tab="customersPanel">Clientes</button>
+            <button
+              type="button"
+              class="dashboard-tab admin-only hidden"
+              data-tab="auditLogPanel"
+              id="auditLogTabButton"
+            >
+              Bitácora de auditoría
+            </button>
+          </nav>
+
+          <section class="card dashboard-panel hidden" id="customersPanel">
             <h3>Gestión de clientes</h3>
             <div class="customer-layout">
               <div class="customer-column">
@@ -134,7 +148,7 @@
             </div>
           </section>
 
-          <section class="card">
+          <section class="card dashboard-panel hidden" id="orderCreatePanel">
             <h3>Crear nueva orden</h3>
             <form id="createOrderForm" class="form-grid">
               <div class="form-row">
@@ -192,8 +206,11 @@
             </form>
           </section>
 
-          <section class="card">
+          <section class="card dashboard-panel" id="orderListPanel">
             <h3>Órdenes registradas</h3>
+            <p class="muted small">
+              Las fechas próximas de entrega se subrayan en rojo cuando la orden aún no está entregada.
+            </p>
             <div class="table-wrapper">
               <table>
                 <thead>
@@ -260,7 +277,7 @@
             </div>
           </section>
 
-          <section class="card hidden" id="auditLogSection">
+          <section class="card dashboard-panel hidden" id="auditLogPanel">
             <h3>Bitácora de auditoría</h3>
             <p class="muted small">Registros inmutables de las acciones realizadas por los usuarios.</p>
             <div class="table-wrapper">
