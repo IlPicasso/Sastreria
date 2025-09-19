@@ -7,6 +7,8 @@ const state = {
   tailors: [],
   orders: [],
   customers: [],
+  customerSearchTerm: '',
+  isCreateCustomerVisible: false,
   auditLogs: [],
   selectedCustomerId: null,
   selectedOrderId: null,
@@ -27,6 +29,10 @@ const logoutButton = document.getElementById('logoutButton');
 const createOrderForm = document.getElementById('createOrderForm');
 const createCustomerForm = document.getElementById('createCustomerForm');
 const updateCustomerForm = document.getElementById('updateCustomerForm');
+const customerSearchInput = document.getElementById('customerSearchInput');
+const showCreateCustomerButton = document.getElementById('showCreateCustomerButton');
+const createCustomerSection = document.getElementById('createCustomerSection');
+const closeCreateCustomerButton = document.getElementById('closeCreateCustomerButton');
 const customersTableBody = document.getElementById('customersTableBody');
 const customerDetail = document.getElementById('customerDetail');
 const customerMeasurementsContainer = document.getElementById('customerMeasurementsContainer');
@@ -159,6 +165,20 @@ function toInputDateValue(dateString) {
   const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
   const day = String(parsedDate.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function normalizeText(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  return value
+    .toString()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function isDeliveryDateClose(deliveryDateString, status) {
@@ -503,6 +523,25 @@ function resetCreateCustomerForm() {
   }
 }
 
+function setCreateCustomerVisible(visible) {
+  if (!createCustomerSection) return;
+  state.isCreateCustomerVisible = visible;
+  createCustomerSection.classList.toggle('hidden', !visible);
+  if (showCreateCustomerButton) {
+    showCreateCustomerButton.classList.toggle('hidden', visible);
+  }
+  if (visible) {
+    if (customerMeasurementsContainer && !customerMeasurementsContainer.children.length) {
+      createMeasurementSetBlock(customerMeasurementsContainer);
+    }
+    createCustomerSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const firstField = createCustomerForm?.querySelector('input, textarea, select');
+    firstField?.focus();
+  } else {
+    resetCreateCustomerForm();
+  }
+}
+
 function renderCustomerMeasurementOptions(customer) {
   if (!customerMeasurementOptions) return;
   if (!customer) {
@@ -630,7 +669,11 @@ async function handleLogin(event) {
       await loadAuditLogs();
     }
     showDashboard();
-    resetCreateCustomerForm();
+    state.customerSearchTerm = '';
+    if (customerSearchInput) {
+      customerSearchInput.value = '';
+    }
+    setCreateCustomerVisible(false);
     resetCreateOrderForm();
     showToast('Bienvenido, sesión iniciada.', 'success');
   } catch (error) {
@@ -730,6 +773,8 @@ function handleLogout(auto = false) {
   state.orders = [];
   state.tailors = [];
   state.customers = [];
+  state.customerSearchTerm = '';
+  state.isCreateCustomerVisible = false;
   state.auditLogs = [];
   state.selectedCustomerId = null;
   state.selectedOrderId = null;
@@ -744,6 +789,10 @@ function handleLogout(auto = false) {
   }
   setActiveDashboardTab('orderListPanel');
   hideDashboard();
+  if (customerSearchInput) {
+    customerSearchInput.value = '';
+  }
+  setCreateCustomerVisible(false);
   if (ordersTableBody) {
     ordersTableBody.innerHTML = '';
   }
@@ -756,6 +805,7 @@ function handleLogout(auto = false) {
   clearCustomerDetail();
   clearOrderDetail();
   resetCreateCustomerForm();
+
   measurementsList.innerHTML = '';
   ensureMeasurementRow();
   renderCustomerMeasurementOptions(null);
@@ -778,6 +828,9 @@ if (logoutButton) {
 function renderCustomers() {
   if (!customersTableBody) return;
   customersTableBody.innerHTML = '';
+  if (customerSearchInput && customerSearchInput.value !== state.customerSearchTerm) {
+    customerSearchInput.value = state.customerSearchTerm;
+  }
   if (!state.customers.length) {
     const row = document.createElement('tr');
     const cell = document.createElement('td');
@@ -786,10 +839,38 @@ function renderCustomers() {
     cell.className = 'muted';
     row.appendChild(cell);
     customersTableBody.appendChild(row);
+    clearCustomerDetail();
     return;
   }
 
-  state.customers.forEach((customer) => {
+  const searchTerm = normalizeText(state.customerSearchTerm);
+  const filteredCustomers = searchTerm
+    ? state.customers.filter((customer) => {
+        const name = normalizeText(customer.full_name);
+        const documentId = normalizeText(customer.document_id);
+        return name.includes(searchTerm) || documentId.includes(searchTerm);
+      })
+    : state.customers;
+
+  if (
+    state.selectedCustomerId &&
+    filteredCustomers.every((customer) => customer.id !== state.selectedCustomerId)
+  ) {
+    clearCustomerDetail();
+  }
+
+  if (!filteredCustomers.length) {
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = 5;
+    cell.textContent = 'No se encontraron clientes que coincidan con la búsqueda.';
+    cell.className = 'muted';
+    row.appendChild(cell);
+    customersTableBody.appendChild(row);
+    return;
+  }
+
+  filteredCustomers.forEach((customer) => {
     const row = document.createElement('tr');
 
     const nameCell = document.createElement('td');
@@ -972,6 +1053,26 @@ if (addUpdateCustomerMeasurementSetButton) {
   });
 }
 
+if (customerSearchInput) {
+  customerSearchInput.addEventListener('input', (event) => {
+    state.customerSearchTerm = event.target.value;
+    renderCustomers();
+  });
+}
+
+if (showCreateCustomerButton) {
+  showCreateCustomerButton.addEventListener('click', () => {
+    setCreateCustomerVisible(true);
+  });
+}
+
+if (closeCreateCustomerButton) {
+  closeCreateCustomerButton.addEventListener('click', () => {
+    setCreateCustomerVisible(false);
+  });
+}
+
+
 if (updateOrderForm) {
   updateOrderForm.addEventListener('submit', handleOrderUpdate);
 }
@@ -1006,7 +1107,7 @@ if (createCustomerForm) {
         },
       });
       await loadCustomers();
-      resetCreateCustomerForm();
+      setCreateCustomerVisible(false);
       showToast('Cliente registrado correctamente.', 'success');
     } catch (error) {
       showToast(error.message, 'error');
@@ -1168,7 +1269,6 @@ function renderOrders() {
 
     const createdCell = document.createElement('td');
     createdCell.textContent = formatDate(order.created_at);
-
 
     const deliveryCell = document.createElement('td');
     if (order.delivery_date) {

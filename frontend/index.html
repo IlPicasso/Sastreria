@@ -76,32 +76,48 @@
           </nav>
 
           <section class="card dashboard-panel hidden" id="customersPanel">
-            <h3>Gestión de clientes</h3>
-            <div class="customer-layout">
-              <div class="customer-column">
-                <h4>Registrar cliente</h4>
-                <form id="createCustomerForm" class="form-grid">
-                  <div class="form-row">
-                    <label for="customerFullName">Nombre completo</label>
-                    <input type="text" id="customerFullName" required />
-                  </div>
-                  <div class="form-row">
-                    <label for="customerDocumentInput">Cédula o identificación</label>
-                    <input type="text" id="customerDocumentInput" required />
-                  </div>
-                  <div class="form-row">
-                    <label for="customerPhone">Teléfono</label>
-                    <input type="text" id="customerPhone" placeholder="Número de contacto" />
-                  </div>
-                  <div class="form-row">
-                    <label>Conjuntos de medidas</label>
-                    <div id="customerMeasurementsContainer" class="measurement-set-list"></div>
-                    <button type="button" id="addCustomerMeasurementSet" class="secondary">Agregar conjunto</button>
-                  </div>
-                  <button type="submit" class="primary">Guardar cliente</button>
-                </form>
+            <div class="customer-panel-header">
+              <div>
+                <h3>Gestión de clientes</h3>
+                <p class="muted">Consulta, busca y administra la información de tus clientes.</p>
               </div>
-
+              <div class="customer-panel-actions">
+                <div class="customer-search">
+                  <label for="customerSearchInput">Buscar</label>
+                  <input type="search" id="customerSearchInput" placeholder="Nombre o cédula" />
+                </div>
+                <button type="button" class="primary" id="showCreateCustomerButton">Añadir cliente</button>
+              </div>
+            </div>
+            <div id="createCustomerSection" class="customer-create hidden">
+              <div class="customer-create-header">
+                <h4>Registrar cliente</h4>
+                <button type="button" class="link-button" id="closeCreateCustomerButton">Cerrar</button>
+              </div>
+              <form id="createCustomerForm" class="form-grid">
+                <div class="form-row">
+                  <label for="customerFullName">Nombre completo</label>
+                  <input type="text" id="customerFullName" required />
+                </div>
+                <div class="form-row">
+                  <label for="customerDocumentInput">Cédula o identificación</label>
+                  <input type="text" id="customerDocumentInput" required />
+                </div>
+                <div class="form-row">
+                  <label for="customerPhone">Teléfono</label>
+                  <input type="text" id="customerPhone" placeholder="Número de contacto" />
+                </div>
+                <div class="form-row">
+                  <label>Conjuntos de medidas</label>
+                  <div id="customerMeasurementsContainer" class="measurement-set-list"></div>
+                  <button type="button" id="addCustomerMeasurementSet" class="secondary">Agregar conjunto</button>
+                </div>
+                <div class="button-row">
+                  <button type="submit" class="primary">Guardar cliente</button>
+                </div>
+              </form>
+            </div>
+            <div class="customer-layout">
               <div class="customer-column">
                 <h4>Clientes registrados</h4>
                 <div class="table-wrapper">
@@ -118,6 +134,8 @@
                     <tbody id="customersTableBody"></tbody>
                   </table>
                 </div>
+              </div>
+              <div class="customer-column">
                 <div id="customerDetail" class="customer-detail hidden">
                   <h4>Detalle del cliente</h4>
                   <form id="updateCustomerForm" class="form-grid">
@@ -136,7 +154,9 @@
                     <div class="form-row">
                       <label>Conjuntos de medidas</label>
                       <div id="updateCustomerMeasurementsContainer" class="measurement-set-list"></div>
-                      <button type="button" id="addUpdateCustomerMeasurementSet" class="secondary">Agregar conjunto</button>
+                      <button type="button" id="addUpdateCustomerMeasurementSet" class="secondary">
+                        Agregar conjunto
+                      </button>
                     </div>
                     <div class="button-row">
                       <button type="submit" class="primary">Guardar cambios</button>

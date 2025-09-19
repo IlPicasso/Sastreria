@@ -274,17 +274,100 @@ button[disabled] {
   box-shadow: 0 15px 30px rgba(15, 76, 92, 0.15);
 }
 
-.customer-layout {
+.customer-panel-header {
   display: flex;
-  gap: 2rem;
   flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.customer-panel-header h3 {
+  margin: 0;
+}
+
+.customer-panel-header p {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  max-width: 38ch;
+}
+
+.customer-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.customer-search {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.customer-search label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.customer-search input {
+  width: min(280px, 100%);
+}
+
+.customer-create {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  background: #f9fbfc;
+  margin-bottom: 1.5rem;
+}
+
+.customer-create-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.customer-create-header h4 {
+  margin: 0;
+}
+
+.customer-create-header .link-button {
+  margin-left: 0;
+  color: var(--muted);
+}
+
+.customer-layout {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .customer-column {
-  flex: 1 1 320px;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+}
+
+@media (min-width: 960px) {
+  .customer-layout {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1.25fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .customer-panel-actions {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .customer-panel-actions button {
+    width: 100%;
+  }
 }
 
 .customer-detail {
