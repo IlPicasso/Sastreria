@@ -1,4 +1,6 @@
 const API_BASE_URL = window.API_BASE_URL || 'http://localhost:8000';
+const DEFAULT_PAGE_SIZE = 10;
+const PAGE_SIZE_OPTIONS = [10, 15, 20, 25, 30, 35, 40, 45, 50];
 
 const state = {
   statuses: [],
@@ -9,6 +11,10 @@ const state = {
   customers: [],
   customerSearchTerm: '',
   orderSearchTerm: '',
+  customerPage: 1,
+  customerPageSize: DEFAULT_PAGE_SIZE,
+  orderPage: 1,
+  orderPageSize: DEFAULT_PAGE_SIZE,
   isCreateCustomerVisible: false,
   auditLogs: [],
   selectedCustomerId: null,
@@ -37,6 +43,10 @@ const showCreateCustomerButton = document.getElementById('showCreateCustomerButt
 const createCustomerSection = document.getElementById('createCustomerSection');
 const closeCreateCustomerButton = document.getElementById('closeCreateCustomerButton');
 const customersTableBody = document.getElementById('customersTableBody');
+const customerPageSizeSelect = document.getElementById('customerPageSize');
+const customerPrevPageButton = document.getElementById('customerPrevPage');
+const customerNextPageButton = document.getElementById('customerNextPage');
+const customerPaginationInfo = document.getElementById('customerPaginationInfo');
 const customerDetail = document.getElementById('customerDetail');
 const customerMeasurementsContainer = document.getElementById('customerMeasurementsContainer');
 const updateCustomerMeasurementsContainer = document.getElementById('updateCustomerMeasurementsContainer');
@@ -46,6 +56,10 @@ const deleteCustomerButton = document.getElementById('deleteCustomerButton');
 const orderCustomerSelect = document.getElementById('orderCustomerSelect');
 const customerMeasurementOptions = document.getElementById('customerMeasurementOptions');
 const ordersTableBody = document.getElementById('ordersTableBody');
+const orderPageSizeSelect = document.getElementById('orderPageSize');
+const orderPrevPageButton = document.getElementById('orderPrevPage');
+const orderNextPageButton = document.getElementById('orderNextPage');
+const orderPaginationInfo = document.getElementById('orderPaginationInfo');
 const orderSearchInput = document.getElementById('orderSearchInput');
 const measurementsList = document.getElementById('measurementsList');
 const addMeasurementButton = document.getElementById('addMeasurementButton');
@@ -831,6 +845,10 @@ function handleLogout(auto = false) {
   state.customers = [];
   state.customerSearchTerm = '';
   state.orderSearchTerm = '';
+  state.customerPage = 1;
+  state.customerPageSize = DEFAULT_PAGE_SIZE;
+  state.orderPage = 1;
+  state.orderPageSize = DEFAULT_PAGE_SIZE;
   state.isCreateCustomerVisible = false;
   state.auditLogs = [];
   state.selectedCustomerId = null;
@@ -852,6 +870,12 @@ function handleLogout(auto = false) {
   if (orderSearchInput) {
     orderSearchInput.value = '';
   }
+  if (customerPageSizeSelect) {
+    customerPageSizeSelect.value = String(DEFAULT_PAGE_SIZE);
+  }
+  if (orderPageSizeSelect) {
+    orderPageSizeSelect.value = String(DEFAULT_PAGE_SIZE);
+  }
   setCreateCustomerVisible(false);
   if (ordersTableBody) {
     ordersTableBody.innerHTML = '';
@@ -870,6 +894,26 @@ function handleLogout(auto = false) {
   ensureMeasurementRow();
   renderCustomerMeasurementOptions(null);
   clearOrderResult();
+  updatePaginationControls({
+    infoElement: customerPaginationInfo,
+    prevButton: customerPrevPageButton,
+    nextButton: customerNextPageButton,
+    pageSizeSelect: customerPageSizeSelect,
+    currentPage: 1,
+    totalItems: 0,
+    pageSize: state.customerPageSize,
+    emptyLabel: 'clientes',
+  });
+  updatePaginationControls({
+    infoElement: orderPaginationInfo,
+    prevButton: orderPrevPageButton,
+    nextButton: orderNextPageButton,
+    pageSizeSelect: orderPageSizeSelect,
+    currentPage: 1,
+    totalItems: 0,
+    pageSize: state.orderPageSize,
+    emptyLabel: 'órdenes',
+  });
   updateNavigationForAuth();
   setActiveView('staff-view');
   if (auto) {
@@ -889,11 +933,26 @@ if (logoutButton) {
 }
 function renderCustomers() {
   if (!customersTableBody) return;
+  const pageSize = getValidPageSize(state.customerPageSize);
+  if (state.customerPageSize !== pageSize) {
+    state.customerPageSize = pageSize;
+  }
   customersTableBody.innerHTML = '';
   if (customerSearchInput && customerSearchInput.value !== state.customerSearchTerm) {
     customerSearchInput.value = state.customerSearchTerm;
   }
   if (!state.customers.length) {
+    state.customerPage = 1;
+    updatePaginationControls({
+      infoElement: customerPaginationInfo,
+      prevButton: customerPrevPageButton,
+      nextButton: customerNextPageButton,
+      pageSizeSelect: customerPageSizeSelect,
+      currentPage: 1,
+      totalItems: 0,
+      pageSize,
+      emptyLabel: 'clientes',
+    });
     const row = document.createElement('tr');
     const cell = document.createElement('td');
     cell.colSpan = 5;
@@ -922,6 +981,17 @@ function renderCustomers() {
   }
 
   if (!filteredCustomers.length) {
+    state.customerPage = 1;
+    updatePaginationControls({
+      infoElement: customerPaginationInfo,
+      prevButton: customerPrevPageButton,
+      nextButton: customerNextPageButton,
+      pageSizeSelect: customerPageSizeSelect,
+      currentPage: 1,
+      totalItems: 0,
+      pageSize,
+      emptyLabel: 'clientes',
+    });
     const row = document.createElement('tr');
     const cell = document.createElement('td');
     cell.colSpan = 5;
@@ -932,7 +1002,34 @@ function renderCustomers() {
     return;
   }
 
-  filteredCustomers.forEach((customer) => {
+  const totalItems = filteredCustomers.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  let currentPage = Number(state.customerPage) || 1;
+  currentPage = Math.min(Math.max(currentPage, 1), totalPages);
+  currentPage =
+    updatePaginationControls({
+      infoElement: customerPaginationInfo,
+      prevButton: customerPrevPageButton,
+      nextButton: customerNextPageButton,
+      pageSizeSelect: customerPageSizeSelect,
+      currentPage,
+      totalItems,
+      pageSize,
+      emptyLabel: 'clientes',
+    }) || currentPage;
+
+  if (!Number.isFinite(currentPage) || currentPage < 1) {
+    currentPage = 1;
+  }
+
+  if (state.customerPage !== currentPage) {
+    state.customerPage = currentPage;
+  }
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedCustomers = filteredCustomers.slice(startIndex, startIndex + pageSize);
+
+  paginatedCustomers.forEach((customer) => {
     const row = document.createElement('tr');
 
     const nameCell = document.createElement('td');
@@ -1138,6 +1235,7 @@ if (addUpdateCustomerMeasurementSetButton) {
 if (customerSearchInput) {
   customerSearchInput.addEventListener('input', (event) => {
     state.customerSearchTerm = event.target.value;
+    state.customerPage = 1;
     renderCustomers();
   });
 }
@@ -1145,6 +1243,57 @@ if (customerSearchInput) {
 if (orderSearchInput) {
   orderSearchInput.addEventListener('input', (event) => {
     state.orderSearchTerm = event.target.value;
+    state.orderPage = 1;
+    renderOrders();
+  });
+}
+
+if (customerPageSizeSelect) {
+  customerPageSizeSelect.addEventListener('change', (event) => {
+    const newSize = getValidPageSize(event.target.value);
+    state.customerPageSize = newSize;
+    state.customerPage = 1;
+    renderCustomers();
+  });
+}
+
+if (customerPrevPageButton) {
+  customerPrevPageButton.addEventListener('click', () => {
+    if (state.customerPage > 1) {
+      state.customerPage -= 1;
+      renderCustomers();
+    }
+  });
+}
+
+if (customerNextPageButton) {
+  customerNextPageButton.addEventListener('click', () => {
+    state.customerPage += 1;
+    renderCustomers();
+  });
+}
+
+if (orderPageSizeSelect) {
+  orderPageSizeSelect.addEventListener('change', (event) => {
+    const newSize = getValidPageSize(event.target.value);
+    state.orderPageSize = newSize;
+    state.orderPage = 1;
+    renderOrders();
+  });
+}
+
+if (orderPrevPageButton) {
+  orderPrevPageButton.addEventListener('click', () => {
+    if (state.orderPage > 1) {
+      state.orderPage -= 1;
+      renderOrders();
+    }
+  });
+}
+
+if (orderNextPageButton) {
+  orderNextPageButton.addEventListener('click', () => {
+    state.orderPage += 1;
     renderOrders();
   });
 }
@@ -1348,19 +1497,6 @@ function toTimestamp(value) {
   return parsed ? parsed.getTime() : null;
 }
 
-function compareNullableNumbers(a, b) {
-  if (a !== null && b !== null && a !== b) {
-    return a - b;
-  }
-  if (a !== null && b === null) {
-    return -1;
-  }
-  if (a === null && b !== null) {
-    return 1;
-  }
-  return 0;
-}
-
 function compareOrdersForDisplay(a, b) {
   const aDelivered = isOrderDelivered(a.status);
   const bDelivered = isOrderDelivered(b.status);
@@ -1368,29 +1504,36 @@ function compareOrdersForDisplay(a, b) {
     return aDelivered ? 1 : -1;
   }
 
-  const deliveryComparison = compareNullableNumbers(
-    toTimestamp(a.delivery_date),
-    toTimestamp(b.delivery_date),
-  );
-  if (deliveryComparison !== 0) {
-    return deliveryComparison;
+  const aDelivery = toTimestamp(a.delivery_date);
+  const bDelivery = toTimestamp(b.delivery_date);
+
+  if (aDelivered && bDelivered) {
+    if (aDelivery !== bDelivery) {
+      if (aDelivery === null) return 1;
+      if (bDelivery === null) return -1;
+      return bDelivery - aDelivery;
+    }
+  } else if (aDelivery !== bDelivery) {
+    if (aDelivery === null) return 1;
+    if (bDelivery === null) return -1;
+    return aDelivery - bDelivery;
   }
 
   if (!aDelivered) {
-    const createdComparison = compareNullableNumbers(
-      toTimestamp(a.created_at),
-      toTimestamp(b.created_at),
-    );
-    if (createdComparison !== 0) {
-      return createdComparison;
+    const aCreated = toTimestamp(a.created_at);
+    const bCreated = toTimestamp(b.created_at);
+    if (aCreated !== bCreated) {
+      if (aCreated === null) return 1;
+      if (bCreated === null) return -1;
+      return aCreated - bCreated;
     }
   } else {
-    const updatedComparison = compareNullableNumbers(
-      toTimestamp(a.updated_at),
-      toTimestamp(b.updated_at),
-    );
-    if (updatedComparison !== 0) {
-      return updatedComparison;
+    const aUpdated = toTimestamp(a.updated_at);
+    const bUpdated = toTimestamp(b.updated_at);
+    if (aUpdated !== bUpdated) {
+      if (aUpdated === null) return 1;
+      if (bUpdated === null) return -1;
+      return bUpdated - aUpdated;
     }
   }
 
@@ -1454,8 +1597,63 @@ function createStatusBadge(status) {
 }
 
 
+function getValidPageSize(value) {
+  const numericValue = Number(value);
+  if (PAGE_SIZE_OPTIONS.includes(numericValue)) {
+    return numericValue;
+  }
+  return DEFAULT_PAGE_SIZE;
+}
+
+function updatePaginationControls({
+  infoElement,
+  prevButton,
+  nextButton,
+  pageSizeSelect,
+  currentPage,
+  totalItems,
+  pageSize,
+  emptyLabel,
+}) {
+  const totalPages = totalItems > 0 ? Math.ceil(totalItems / pageSize) : 1;
+  const normalizedPage = totalItems > 0 ? Math.min(Math.max(currentPage, 1), totalPages) : 1;
+  const startItem = totalItems === 0 ? 0 : (normalizedPage - 1) * pageSize + 1;
+  const endItem = totalItems === 0 ? 0 : Math.min(normalizedPage * pageSize, totalItems);
+
+  if (infoElement) {
+    infoElement.textContent =
+      totalItems === 0
+        ? `Sin ${emptyLabel}`
+        : `Mostrando ${startItem}-${endItem} de ${totalItems}`;
+  }
+
+  if (prevButton) {
+    const isDisabled = totalItems === 0 || normalizedPage <= 1;
+    prevButton.disabled = isDisabled;
+    prevButton.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
+  }
+
+  if (nextButton) {
+    const isDisabled = totalItems === 0 || normalizedPage >= totalPages;
+    nextButton.disabled = isDisabled;
+    nextButton.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
+  }
+
+  if (pageSizeSelect && pageSizeSelect.value !== String(pageSize)) {
+    pageSizeSelect.value = String(pageSize);
+  }
+
+  return normalizedPage;
+}
+
+
 function renderOrders() {
   if (!ordersTableBody) return;
+
+  const pageSize = getValidPageSize(state.orderPageSize);
+  if (state.orderPageSize !== pageSize) {
+    state.orderPageSize = pageSize;
+  }
 
   removeOrderDetailRow();
   if (orderDetail) {
@@ -1468,6 +1666,17 @@ function renderOrders() {
   }
 
   if (!state.orders.length) {
+    state.orderPage = 1;
+    updatePaginationControls({
+      infoElement: orderPaginationInfo,
+      prevButton: orderPrevPageButton,
+      nextButton: orderNextPageButton,
+      pageSizeSelect: orderPageSizeSelect,
+      currentPage: 1,
+      totalItems: 0,
+      pageSize,
+      emptyLabel: 'órdenes',
+    });
     const row = document.createElement('tr');
     const cell = document.createElement('td');
     cell.colSpan = ORDER_TABLE_COLUMN_COUNT;
@@ -1489,9 +1698,20 @@ function renderOrders() {
     : [...state.orders];
 
   if (!filteredOrders.length) {
+    state.orderPage = 1;
+    updatePaginationControls({
+      infoElement: orderPaginationInfo,
+      prevButton: orderPrevPageButton,
+      nextButton: orderNextPageButton,
+      pageSizeSelect: orderPageSizeSelect,
+      currentPage: 1,
+      totalItems: 0,
+      pageSize,
+      emptyLabel: 'órdenes',
+    });
     const row = document.createElement('tr');
     const cell = document.createElement('td');
-    cell.colSpan = 5;
+    cell.colSpan = ORDER_TABLE_COLUMN_COUNT;
     cell.textContent = 'No se encontraron órdenes que coincidan con la búsqueda.';
     cell.className = 'muted';
     row.appendChild(cell);
@@ -1509,9 +1729,47 @@ function renderOrders() {
     clearOrderDetail({ skipRender: true });
   }
 
+  const totalItems = sortedOrders.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  let currentPage = Number(state.orderPage) || 1;
+
+  if (state.selectedOrderId !== null) {
+    const selectedIndex = sortedOrders.findIndex((order) => order.id === state.selectedOrderId);
+    if (selectedIndex >= 0) {
+      const selectedPage = Math.floor(selectedIndex / pageSize) + 1;
+      if (selectedPage !== currentPage) {
+        currentPage = selectedPage;
+      }
+    }
+  }
+
+  currentPage = Math.min(Math.max(currentPage, 1), totalPages);
+  currentPage =
+    updatePaginationControls({
+      infoElement: orderPaginationInfo,
+      prevButton: orderPrevPageButton,
+      nextButton: orderNextPageButton,
+      pageSizeSelect: orderPageSizeSelect,
+      currentPage,
+      totalItems,
+      pageSize,
+      emptyLabel: 'órdenes',
+    }) || currentPage;
+
+  if (!Number.isFinite(currentPage) || currentPage < 1) {
+    currentPage = 1;
+  }
+
+  if (state.orderPage !== currentPage) {
+    state.orderPage = currentPage;
+  }
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedOrders = sortedOrders.slice(startIndex, startIndex + pageSize);
+
   let hasActiveDetail = false;
 
-  sortedOrders.forEach((order) => {
+  paginatedOrders.forEach((order) => {
     const row = document.createElement('tr');
     row.classList.add('order-row');
     const isSelected = state.selectedOrderId === order.id;

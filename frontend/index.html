@@ -92,13 +92,54 @@
                 <h3>Gestión de clientes</h3>
                 <p class="muted">Consulta, busca y administra la información de tus clientes.</p>
               </div>
-              <div class="customer-panel-actions">
-                <div class="customer-search">
-                  <label for="customerSearchInput">Buscar</label>
-                  <input type="search" id="customerSearchInput" placeholder="Nombre o cédula" />
-                </div>
-                <button type="button" class="primary" id="showCreateCustomerButton">Añadir cliente</button>
+            <div class="customer-panel-actions">
+              <div class="customer-search">
+                <label for="customerSearchInput">Buscar</label>
+                <input type="search" id="customerSearchInput" placeholder="Nombre o cédula" />
               </div>
+              <div class="table-pagination">
+                <label for="customerPageSize">Filas por página</label>
+                <div class="pagination-controls">
+                  <select id="customerPageSize">
+                    <option value="10" selected>10</option>
+                    <option value="15">15</option>
+                    <option value="20">20</option>
+                    <option value="25">25</option>
+                    <option value="30">30</option>
+                    <option value="35">35</option>
+                    <option value="40">40</option>
+                    <option value="45">45</option>
+                    <option value="50">50</option>
+                  </select>
+                  <div class="pagination-buttons">
+                    <button
+                      type="button"
+                      class="pagination-button"
+                      id="customerPrevPage"
+                      aria-label="Página anterior de clientes"
+                    >
+                      Anterior
+                    </button>
+                    <span
+                      id="customerPaginationInfo"
+                      class="pagination-info"
+                      aria-live="polite"
+                    >
+                      Mostrando 0-0 de 0
+                    </span>
+                    <button
+                      type="button"
+                      class="pagination-button"
+                      id="customerNextPage"
+                      aria-label="Página siguiente de clientes"
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <button type="button" class="primary" id="showCreateCustomerButton">Añadir cliente</button>
+            </div>
             </div>
             <div id="createCustomerSection" class="customer-create hidden">
               <div class="customer-create-header">
@@ -253,6 +294,47 @@
                   placeholder="Número de orden o cédula"
                   autocomplete="off"
                 />
+              </div>
+              <div class="table-pagination">
+                <label for="orderPageSize">Filas por página</label>
+                <div class="pagination-controls">
+                  <select id="orderPageSize">
+                    <option value="10" selected>10</option>
+                    <option value="15">15</option>
+                    <option value="20">20</option>
+                    <option value="25">25</option>
+                    <option value="30">30</option>
+                    <option value="35">35</option>
+                    <option value="40">40</option>
+                    <option value="45">45</option>
+                    <option value="50">50</option>
+                  </select>
+                  <div class="pagination-buttons">
+                    <button
+                      type="button"
+                      class="pagination-button"
+                      id="orderPrevPage"
+                      aria-label="Página anterior de órdenes"
+                    >
+                      Anterior
+                    </button>
+                    <span
+                      id="orderPaginationInfo"
+                      class="pagination-info"
+                      aria-live="polite"
+                    >
+                      Mostrando 0-0 de 0
+                    </span>
+                    <button
+                      type="button"
+                      class="pagination-button"
+                      id="orderNextPage"
+                      aria-label="Página siguiente de órdenes"
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
             <div class="table-wrapper">
