@@ -1,4 +1,3 @@
-from datetime import date
 from typing import List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
@@ -136,12 +135,11 @@ def search_public_orders(
 
 @app.get("/customers", response_model=List[schemas.CustomerRead])
 def list_customers(
-    search: Optional[str] = Query(default=None, min_length=1),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(staff_required()),
 ):
     _ = current_user
-    return crud.get_customers(db, search=search)
+    return crud.get_customers(db)
 
 
 @app.post("/customers", response_model=schemas.CustomerRead, status_code=status.HTTP_201_CREATED)
@@ -257,8 +255,6 @@ def create_order_endpoint(
         order_data["customer_document"] = customer.document_id
     if order_data.get("customer_contact") in (None, ""):
         order_data["customer_contact"] = customer.phone
-    if not order_data.get("entry_date"):
-        order_data["entry_date"] = date.today()
     order = crud.create_order(db, schemas.OrderCreate(**order_data))
     crud.create_audit_log(
         db,
