@@ -12,6 +12,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Iterable, List, Optional, Sequence, Tuple
 
 from sqlalchemy import MetaData, Table, delete, inspect, select
+
 from sqlalchemy.orm import Session
 
 from app import crud, models, schemas
@@ -156,6 +157,7 @@ def naive_utcnow() -> datetime:
     """Return a naive UTC timestamp compatible with existing columns."""
 
     return datetime.now(UTC).replace(tzinfo=None)
+
 
 
 def random_person() -> Tuple[str, str]:
@@ -339,6 +341,7 @@ def random_entry_date(delivery_date: Optional[date]) -> date:
     return latest - timedelta(days=offset)
 
 
+
 def seed_orders(
     db: Session,
     count: int,
@@ -355,6 +358,7 @@ def seed_orders(
         raise RuntimeError(
             "No se pudo reflejar la tabla de órdenes para establecer 'entry_date'."
         )
+
     orders: List[models.Order] = []
     for _ in range(count):
         customer = random.choice(customers)
@@ -403,6 +407,7 @@ def seed_orders(
                 raise RuntimeError("No se pudo recuperar la orden recién insertada")
         else:
             order = crud.create_order(db, order_in)
+
         orders.append(order)
     return orders
 
