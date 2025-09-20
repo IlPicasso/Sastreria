@@ -27,6 +27,14 @@ class OrderStatus(str, enum.Enum):
     ENTREGADO = "Entregado"
 
 
+class Establishment(str, enum.Enum):
+    """Physical branches that can originate an order."""
+
+    URDESA = "Urdesa"
+    BATAN = "Batan"
+    INDIE = "Indie"
+
+
 class User(Base):
     """Registered system user."""
 
@@ -61,6 +69,8 @@ class Order(Base):
     notes = Column(Text, nullable=True)
     assigned_tailor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     delivery_date = Column(Date, nullable=True)
+    origin_branch = Column(Enum(Establishment), nullable=True)
+    invoice_number = Column(String(50), nullable=True)
     created_at = Column(DateTime(timezone=True), default=now, nullable=False)
     updated_at = Column(
         DateTime(timezone=True),

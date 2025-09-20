@@ -1,4 +1,7 @@
 const API_BASE_URL = window.API_BASE_URL || 'http://localhost:8000';
+const DEFAULT_PAGE_SIZE = 10;
+const PAGE_SIZE_OPTIONS = [10, 15, 20, 25, 30, 35, 40, 45, 50];
+const ESTABLISHMENTS = ['Urdesa', 'Batan', 'Indie'];
 
 const state = {
   statuses: [],
@@ -9,6 +12,10 @@ const state = {
   customers: [],
   customerSearchTerm: '',
   orderSearchTerm: '',
+  customerPage: 1,
+  customerPageSize: DEFAULT_PAGE_SIZE,
+  orderPage: 1,
+  orderPageSize: DEFAULT_PAGE_SIZE,
   isCreateCustomerVisible: false,
   auditLogs: [],
   selectedCustomerId: null,
@@ -37,7 +44,14 @@ const showCreateCustomerButton = document.getElementById('showCreateCustomerButt
 const createCustomerSection = document.getElementById('createCustomerSection');
 const closeCreateCustomerButton = document.getElementById('closeCreateCustomerButton');
 const customersTableBody = document.getElementById('customersTableBody');
+const customerPageSizeSelect = document.getElementById('customerPageSize');
+const customerPrevPageButton = document.getElementById('customerPrevPage');
+const customerNextPageButton = document.getElementById('customerNextPage');
+const customerPaginationInfo = document.getElementById('customerPaginationInfo');
 const customerDetail = document.getElementById('customerDetail');
+const customerDetailTitle = document.getElementById('customerDetailTitle');
+const customerDetailSummaryElement = document.getElementById('customerDetailSummary');
+const customerOrderHistoryContainer = document.getElementById('customerOrderHistory');
 const customerMeasurementsContainer = document.getElementById('customerMeasurementsContainer');
 const updateCustomerMeasurementsContainer = document.getElementById('updateCustomerMeasurementsContainer');
 const addCustomerMeasurementSetButton = document.getElementById('addCustomerMeasurementSet');
@@ -46,11 +60,17 @@ const deleteCustomerButton = document.getElementById('deleteCustomerButton');
 const orderCustomerSelect = document.getElementById('orderCustomerSelect');
 const customerMeasurementOptions = document.getElementById('customerMeasurementOptions');
 const ordersTableBody = document.getElementById('ordersTableBody');
+const orderPageSizeSelect = document.getElementById('orderPageSize');
+const orderPrevPageButton = document.getElementById('orderPrevPage');
+const orderNextPageButton = document.getElementById('orderNextPage');
+const orderPaginationInfo = document.getElementById('orderPaginationInfo');
 const orderSearchInput = document.getElementById('orderSearchInput');
 const measurementsList = document.getElementById('measurementsList');
 const addMeasurementButton = document.getElementById('addMeasurementButton');
 const statusSelect = document.getElementById('newOrderStatus');
 const assignTailorSelect = document.getElementById('assignTailor');
+const newOrderInvoiceInput = document.getElementById('newOrderInvoice');
+const newOrderOriginSelect = document.getElementById('newOrderOrigin');
 const newOrderDeliveryDateInput = document.getElementById('newOrderDeliveryDate');
 const orderDetail = document.getElementById('orderDetail');
 const updateOrderForm = document.getElementById('updateOrderForm');
@@ -62,6 +82,8 @@ const orderDetailDocumentInput = document.getElementById('orderDetailDocument');
 const orderDetailContactInput = document.getElementById('orderDetailContact');
 const orderDetailStatusSelect = document.getElementById('orderDetailStatus');
 const orderDetailTailorSelect = document.getElementById('orderDetailTailor');
+const orderDetailInvoiceInput = document.getElementById('orderDetailInvoice');
+const orderDetailOriginSelect = document.getElementById('orderDetailOrigin');
 const orderDetailDeliveryDateInput = document.getElementById('orderDetailDeliveryDate');
 const orderDetailNotesTextarea = document.getElementById('orderDetailNotes');
 const orderDetailMeasurementsContainer = document.getElementById('orderDetailMeasurements');
@@ -72,6 +94,7 @@ const currentUserNameElement = document.getElementById('currentUserName');
 const currentUserRoleElement = document.getElementById('currentUserRole');
 const auditLogTabButton = document.getElementById('auditLogTabButton');
 const auditLogTableBody = document.getElementById('auditLogTableBody');
+const closeCustomerDetailButton = document.getElementById('closeCustomerDetailButton');
 
 const ROLE_LABELS = {
   administrador: 'Administrador',
@@ -80,10 +103,16 @@ const ROLE_LABELS = {
 };
 
 const DELIVERY_WARNING_DAYS = 2;
+const CUSTOMER_DETAIL_DEFAULT_TITLE = 'Detalle del cliente';
+const CUSTOMER_DETAIL_DEFAULT_SUMMARY = 'Selecciona un cliente para ver su información.';
+const CUSTOMER_ORDER_HISTORY_PROMPT = 'Selecciona un cliente para ver sus órdenes anteriores.';
+const CUSTOMER_ORDER_HISTORY_EMPTY_MESSAGE = 'No tiene órdenes registradas.';
 
 let activeDashboardTab = 'orderListPanel';
 const ORDER_TABLE_COLUMN_COUNT = 6;
+const CUSTOMER_TABLE_COLUMN_COUNT = 5;
 let activeOrderDetailRow = null;
+let activeCustomerDetailRow = null;
 
 
 function setActiveView(viewId) {
@@ -172,19 +201,49 @@ function formatDateOnly(dateString) {
   }
 }
 
-function toInputDateValue(dateString) {
-  if (!dateString) return '';
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-    return dateString;
-  }
-  const parsedDate = new Date(dateString);
-  if (Number.isNaN(parsedDate.getTime())) {
+function formatDateTimeForInput(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
     return '';
   }
-  const year = parsedDate.getFullYear();
-  const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
-  const day = String(parsedDate.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function toInputDateTimeValue(value) {
+  if (!value) {
+    return '';
+  }
+
+  if (value instanceof Date) {
+    return formatDateTimeForInput(value);
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return '';
+    }
+    const match = trimmed.match(/^(\d{4}-\d{2}-\d{2})[T\s](\d{2}):(\d{2})/);
+    if (match) {
+      const [, datePart, hourPart, minutePart] = match;
+      return `${datePart}T${hourPart}:${minutePart}`;
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return `${trimmed}T00:00`;
+    }
+    const parsed = new Date(trimmed);
+    return formatDateTimeForInput(parsed);
+  }
+
+  if (typeof value === 'number') {
+    return formatDateTimeForInput(new Date(value));
+  }
+
+  return '';
 }
 
 function normalizeText(value) {
@@ -232,6 +291,41 @@ function isDeliveryDateClose(deliveryDateString, status) {
   deliveryDate.setHours(0, 0, 0, 0);
   const diffInDays = (deliveryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
   return diffInDays >= 0 && diffInDays <= DELIVERY_WARNING_DAYS;
+}
+
+function hasExplicitTimeComponent(value) {
+  if (!value) {
+    return false;
+  }
+  if (value instanceof Date) {
+    return true;
+  }
+  if (typeof value === 'string') {
+    return /T\d{2}:\d{2}| \d{2}:\d{2}/.test(value);
+  }
+  return false;
+}
+
+function formatDeliveryDateDisplay(order) {
+  if (!order?.delivery_date) {
+    return '';
+  }
+  const deliveryValue = order.delivery_date;
+  if (hasExplicitTimeComponent(deliveryValue)) {
+    return formatDate(deliveryValue);
+  }
+  const dateLabel = formatDateOnly(deliveryValue);
+  if (isOrderDelivered(order.status) && order.updated_at) {
+    const updated = new Date(order.updated_at);
+    if (!Number.isNaN(updated.getTime())) {
+      const timeLabel = updated.toLocaleTimeString('es-EC', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      return `${dateLabel} · ${timeLabel}`;
+    }
+  }
+  return dateLabel;
 }
 
 async function apiFetch(path, { method = 'GET', body, headers = {}, auth = true } = {}) {
@@ -283,6 +377,12 @@ function renderPublicOrderResults(orders) {
             .map((item) => `<span class="tag">${item.nombre}: ${item.valor}</span>`)
             .join('')}</div>`
         : '<p class="muted">No hay medidas registradas.</p>';
+      const deliveryLabel = order.delivery_date
+        ? formatDeliveryDateDisplay(order) || formatDateOnly(order.delivery_date)
+        : '';
+      const deliveryInfo = deliveryLabel
+        ? `<p><strong>Fecha tentativa de entrega:</strong> ${deliveryLabel}</p>`
+        : `<p><strong>Fecha tentativa de entrega:</strong> <span class="muted">Sin definir</span></p>`;
       return `
         <article class="public-order-card">
           <header>
@@ -291,6 +391,7 @@ function renderPublicOrderResults(orders) {
             ${order.customer_document ? `<p><strong>Documento:</strong> ${order.customer_document}</p>` : ''}
           </header>
           <p><strong>Estado:</strong> ${order.status}</p>
+          ${deliveryInfo}
           ${order.notes ? `<p><strong>Notas:</strong> ${order.notes}</p>` : ''}
           <p><strong>Última actualización:</strong> ${formatDate(order.updated_at)}</p>
           ${measurements}
@@ -360,6 +461,32 @@ function populateTailorSelect(selectElement, selectedId = '') {
     option.value = String(tailor.id);
     option.textContent = tailor.full_name;
     if (selectedId && String(selectedId) === String(tailor.id)) {
+      option.selected = true;
+    }
+    selectElement.appendChild(option);
+  });
+}
+
+function populateEstablishmentSelect(selectElement, selectedValue = '') {
+  if (!selectElement) return;
+  const normalizedSelected = selectedValue || '';
+  selectElement.innerHTML = '';
+
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Selecciona un establecimiento';
+  placeholder.disabled = true;
+  placeholder.hidden = true;
+  if (!normalizedSelected) {
+    placeholder.selected = true;
+  }
+  selectElement.appendChild(placeholder);
+
+  ESTABLISHMENTS.forEach((branch) => {
+    const option = document.createElement('option');
+    option.value = branch;
+    option.textContent = branch;
+    if (branch === normalizedSelected) {
       option.selected = true;
     }
     selectElement.appendChild(option);
@@ -539,10 +666,12 @@ function resetCreateOrderForm() {
   createOrderForm.reset();
   populateStatusSelect(statusSelect);
   populateTailorSelect(assignTailorSelect);
+  populateEstablishmentSelect(newOrderOriginSelect);
   populateCustomerSelect(orderCustomerSelect);
   const documentInput = document.getElementById('newCustomerDocument');
   const nameInput = document.getElementById('newCustomerName');
   const contactInput = document.getElementById('newCustomerContact');
+  if (newOrderInvoiceInput) newOrderInvoiceInput.value = '';
   if (documentInput) documentInput.value = '';
   if (nameInput) nameInput.value = '';
   if (contactInput) contactInput.value = '';
@@ -783,6 +912,15 @@ async function loadOrders() {
       }
     }
     renderOrders();
+    renderCustomers();
+    if (state.selectedCustomerId) {
+      const activeCustomer = state.customers.find(
+        (customer) => customer.id === state.selectedCustomerId,
+      );
+      if (activeCustomer) {
+        renderCustomerOrderHistory(activeCustomer);
+      }
+    }
   } catch (error) {
     showToast(error.message, 'error');
   }
@@ -831,6 +969,10 @@ function handleLogout(auto = false) {
   state.customers = [];
   state.customerSearchTerm = '';
   state.orderSearchTerm = '';
+  state.customerPage = 1;
+  state.customerPageSize = DEFAULT_PAGE_SIZE;
+  state.orderPage = 1;
+  state.orderPageSize = DEFAULT_PAGE_SIZE;
   state.isCreateCustomerVisible = false;
   state.auditLogs = [];
   state.selectedCustomerId = null;
@@ -852,6 +994,12 @@ function handleLogout(auto = false) {
   if (orderSearchInput) {
     orderSearchInput.value = '';
   }
+  if (customerPageSizeSelect) {
+    customerPageSizeSelect.value = String(DEFAULT_PAGE_SIZE);
+  }
+  if (orderPageSizeSelect) {
+    orderPageSizeSelect.value = String(DEFAULT_PAGE_SIZE);
+  }
   setCreateCustomerVisible(false);
   if (ordersTableBody) {
     ordersTableBody.innerHTML = '';
@@ -870,6 +1018,26 @@ function handleLogout(auto = false) {
   ensureMeasurementRow();
   renderCustomerMeasurementOptions(null);
   clearOrderResult();
+  updatePaginationControls({
+    infoElement: customerPaginationInfo,
+    prevButton: customerPrevPageButton,
+    nextButton: customerNextPageButton,
+    pageSizeSelect: customerPageSizeSelect,
+    currentPage: 1,
+    totalItems: 0,
+    pageSize: state.customerPageSize,
+    emptyLabel: 'clientes',
+  });
+  updatePaginationControls({
+    infoElement: orderPaginationInfo,
+    prevButton: orderPrevPageButton,
+    nextButton: orderNextPageButton,
+    pageSizeSelect: orderPageSizeSelect,
+    currentPage: 1,
+    totalItems: 0,
+    pageSize: state.orderPageSize,
+    emptyLabel: 'órdenes',
+  });
   updateNavigationForAuth();
   setActiveView('staff-view');
   if (auto) {
@@ -887,16 +1055,123 @@ if (logoutButton) {
     showToast('Sesión cerrada correctamente.', 'success');
   });
 }
+
+function getOrdersForCustomer(customerId) {
+  if (customerId === null || customerId === undefined) {
+    return [];
+  }
+  const numericId = Number(customerId);
+  if (!Number.isFinite(numericId)) {
+    return [];
+  }
+  return state.orders.filter((order) => Number(order.customer_id) === numericId);
+}
+
+function sortOrdersByRecency(orders) {
+  return [...orders].sort((a, b) => {
+    const aTimestamp = toTimestamp(a?.updated_at) ?? toTimestamp(a?.created_at) ?? 0;
+    const bTimestamp = toTimestamp(b?.updated_at) ?? toTimestamp(b?.created_at) ?? 0;
+    if (aTimestamp !== bTimestamp) {
+      return bTimestamp - aTimestamp;
+    }
+    const aId = typeof a?.id === 'number' ? a.id : Number(a?.id) || 0;
+    const bId = typeof b?.id === 'number' ? b.id : Number(b?.id) || 0;
+    return bId - aId;
+  });
+}
+
+function renderCustomerOrderHistory(customer) {
+  if (!customerOrderHistoryContainer) return;
+  if (!customer) {
+    customerOrderHistoryContainer.classList.add('muted');
+    customerOrderHistoryContainer.textContent = CUSTOMER_ORDER_HISTORY_PROMPT;
+    return;
+  }
+
+  const ordersForCustomer = sortOrdersByRecency(getOrdersForCustomer(customer.id));
+  if (!ordersForCustomer.length) {
+    customerOrderHistoryContainer.classList.add('muted');
+    customerOrderHistoryContainer.textContent = CUSTOMER_ORDER_HISTORY_EMPTY_MESSAGE;
+    return;
+  }
+
+  customerOrderHistoryContainer.classList.remove('muted');
+  customerOrderHistoryContainer.innerHTML = '';
+
+  const list = document.createElement('ul');
+  list.className = 'customer-order-history-items';
+
+  ordersForCustomer.forEach((order) => {
+    const item = document.createElement('li');
+    item.className = 'customer-order-history-item';
+
+    const header = document.createElement('div');
+    header.className = 'customer-order-history-item-header';
+
+    const orderNumber = document.createElement('strong');
+    orderNumber.textContent = order.order_number;
+
+    const statusWrapper = document.createElement('div');
+    statusWrapper.appendChild(createStatusBadge(order.status));
+
+    header.appendChild(orderNumber);
+    header.appendChild(statusWrapper);
+
+    const invoice = document.createElement('p');
+    invoice.className = 'customer-order-history-item-invoice';
+    invoice.textContent = order.invoice_number
+      ? `Factura: ${order.invoice_number}`
+      : 'Factura: Sin número registrado';
+
+    const meta = document.createElement('p');
+    meta.className = 'customer-order-history-item-meta';
+    const parts = [];
+    if (order.origin_branch) {
+      parts.push(`Establecimiento: ${order.origin_branch}`);
+    }
+    const deliveryLabel = formatDeliveryDateDisplay(order);
+    if (deliveryLabel) {
+      parts.push(`Entrega: ${deliveryLabel}`);
+    }
+    if (order.updated_at) {
+      parts.push(`Actualizado: ${formatDate(order.updated_at)}`);
+    }
+    meta.textContent = parts.length ? parts.join(' • ') : 'Sin información adicional disponible.';
+
+    item.appendChild(header);
+    item.appendChild(invoice);
+    item.appendChild(meta);
+    list.appendChild(item);
+  });
+
+  customerOrderHistoryContainer.appendChild(list);
+}
 function renderCustomers() {
   if (!customersTableBody) return;
+  const pageSize = getValidPageSize(state.customerPageSize);
+  if (state.customerPageSize !== pageSize) {
+    state.customerPageSize = pageSize;
+  }
   customersTableBody.innerHTML = '';
+  activeCustomerDetailRow = null;
   if (customerSearchInput && customerSearchInput.value !== state.customerSearchTerm) {
     customerSearchInput.value = state.customerSearchTerm;
   }
   if (!state.customers.length) {
+    state.customerPage = 1;
+    updatePaginationControls({
+      infoElement: customerPaginationInfo,
+      prevButton: customerPrevPageButton,
+      nextButton: customerNextPageButton,
+      pageSizeSelect: customerPageSizeSelect,
+      currentPage: 1,
+      totalItems: 0,
+      pageSize,
+      emptyLabel: 'clientes',
+    });
     const row = document.createElement('tr');
     const cell = document.createElement('td');
-    cell.colSpan = 5;
+    cell.colSpan = CUSTOMER_TABLE_COLUMN_COUNT;
     cell.textContent = 'No hay clientes registrados aún.';
     cell.className = 'muted';
     row.appendChild(cell);
@@ -922,9 +1197,20 @@ function renderCustomers() {
   }
 
   if (!filteredCustomers.length) {
+    state.customerPage = 1;
+    updatePaginationControls({
+      infoElement: customerPaginationInfo,
+      prevButton: customerPrevPageButton,
+      nextButton: customerNextPageButton,
+      pageSizeSelect: customerPageSizeSelect,
+      currentPage: 1,
+      totalItems: 0,
+      pageSize,
+      emptyLabel: 'clientes',
+    });
     const row = document.createElement('tr');
     const cell = document.createElement('td');
-    cell.colSpan = 5;
+    cell.colSpan = CUSTOMER_TABLE_COLUMN_COUNT;
     cell.textContent = 'No se encontraron clientes que coincidan con la búsqueda.';
     cell.className = 'muted';
     row.appendChild(cell);
@@ -932,8 +1218,60 @@ function renderCustomers() {
     return;
   }
 
-  filteredCustomers.forEach((customer) => {
+  const totalItems = filteredCustomers.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  let currentPage = Number(state.customerPage) || 1;
+
+  if (state.selectedCustomerId !== null) {
+    const selectedIndex = filteredCustomers.findIndex(
+      (customer) => customer.id === state.selectedCustomerId,
+    );
+    if (selectedIndex >= 0) {
+      const selectedPage = Math.floor(selectedIndex / pageSize) + 1;
+      if (selectedPage !== currentPage) {
+        currentPage = selectedPage;
+      }
+    }
+  }
+
+  currentPage = Math.min(Math.max(currentPage, 1), totalPages);
+  currentPage =
+    updatePaginationControls({
+      infoElement: customerPaginationInfo,
+      prevButton: customerPrevPageButton,
+      nextButton: customerNextPageButton,
+      pageSizeSelect: customerPageSizeSelect,
+      currentPage,
+      totalItems,
+      pageSize,
+      emptyLabel: 'clientes',
+    }) || currentPage;
+
+  if (!Number.isFinite(currentPage) || currentPage < 1) {
+    currentPage = 1;
+  }
+
+  if (state.customerPage !== currentPage) {
+    state.customerPage = currentPage;
+  }
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedCustomers = filteredCustomers.slice(startIndex, startIndex + pageSize);
+
+  let detailRendered = false;
+
+  paginatedCustomers.forEach((customer) => {
     const row = document.createElement('tr');
+    row.classList.add('customer-row');
+    row.dataset.customerId = String(customer.id);
+
+    const isSelected = state.selectedCustomerId === customer.id;
+    if (isSelected) {
+      row.classList.add('is-selected');
+    }
+
+    const ordersForCustomer = getOrdersForCustomer(customer.id);
+    const orderCount = ordersForCustomer.length;
 
     const nameCell = document.createElement('td');
     nameCell.textContent = customer.full_name;
@@ -944,36 +1282,109 @@ function renderCustomers() {
     const phoneCell = document.createElement('td');
     phoneCell.textContent = customer.phone || '—';
 
-    const measurementsCell = document.createElement('td');
-    measurementsCell.textContent = `${customer.measurements?.length || 0}`;
+    const orderCountCell = document.createElement('td');
+    orderCountCell.className = 'customer-order-count-cell';
+    if (orderCount > 0) {
+      const badge = document.createElement('span');
+      badge.className = 'customer-order-count-badge';
+      badge.textContent = orderCount;
+      const label =
+        orderCount === 1 ? '1 orden registrada' : `${orderCount} órdenes registradas`;
+      badge.title = label;
+      badge.setAttribute('aria-label', label);
+      orderCountCell.appendChild(badge);
+    } else {
+      orderCountCell.innerHTML = '<span class="muted">0</span>';
+    }
 
     const actionsCell = document.createElement('td');
     const viewButton = document.createElement('button');
     viewButton.type = 'button';
     viewButton.className = 'secondary';
-    viewButton.textContent = 'Ver detalle';
+    viewButton.dataset.action = 'toggle-customer-detail';
+    viewButton.dataset.customerId = String(customer.id);
+    viewButton.setAttribute('aria-controls', 'customerDetail');
+    viewButton.textContent = isSelected ? 'Ocultar detalle' : 'Ver detalle';
+    viewButton.setAttribute('aria-expanded', isSelected ? 'true' : 'false');
     viewButton.addEventListener('click', () => {
-      populateCustomerDetail(customer);
+      if (state.selectedCustomerId === customer.id) {
+        clearCustomerDetail({ reRender: true });
+      } else {
+        populateCustomerDetail(customer);
+      }
     });
     actionsCell.appendChild(viewButton);
 
     row.appendChild(nameCell);
     row.appendChild(documentCell);
     row.appendChild(phoneCell);
-    row.appendChild(measurementsCell);
+    row.appendChild(orderCountCell);
     row.appendChild(actionsCell);
 
     customersTableBody.appendChild(row);
+
+    if (isSelected && customerDetail) {
+      const detailRow = document.createElement('tr');
+      detailRow.className = 'customer-detail-row';
+      detailRow.dataset.customerId = String(customer.id);
+
+      const detailCell = document.createElement('td');
+      detailCell.colSpan = CUSTOMER_TABLE_COLUMN_COUNT;
+      detailCell.className = 'customer-detail-cell';
+      detailCell.appendChild(customerDetail);
+
+      detailRow.appendChild(detailCell);
+      customersTableBody.appendChild(detailRow);
+      activeCustomerDetailRow = detailRow;
+      customerDetail.classList.remove('hidden');
+      viewButton.textContent = 'Ocultar detalle';
+      viewButton.setAttribute('aria-expanded', 'true');
+      detailRendered = true;
+    }
   });
+
+  if (!detailRendered && customerDetail) {
+    customerDetail.classList.add('hidden');
+    activeCustomerDetailRow = null;
+  }
 }
 
 function populateCustomerDetail(customer) {
   if (!customerDetail) return;
   state.selectedCustomerId = customer.id;
   customerDetail.classList.remove('hidden');
-  document.getElementById('updateCustomerName').value = customer.full_name;
-  document.getElementById('updateCustomerDocument').value = customer.document_id;
-  document.getElementById('updateCustomerPhone').value = customer.phone || '';
+
+  if (customerDetailTitle) {
+    customerDetailTitle.textContent = customer.full_name || CUSTOMER_DETAIL_DEFAULT_TITLE;
+  }
+
+  const ordersForCustomer = getOrdersForCustomer(customer.id);
+  if (customerDetailSummaryElement) {
+    const summaryParts = [];
+    if (customer.document_id) {
+      summaryParts.push(`Documento: ${customer.document_id}`);
+    }
+    if (customer.phone) {
+      summaryParts.push(`Teléfono: ${customer.phone}`);
+    }
+    if (ordersForCustomer.length) {
+      const label =
+        ordersForCustomer.length === 1
+          ? '1 orden registrada'
+          : `${ordersForCustomer.length} órdenes registradas`;
+      summaryParts.push(label);
+    }
+    customerDetailSummaryElement.textContent =
+      summaryParts.length ? summaryParts.join(' • ') : 'Sin datos de contacto registrados.';
+  }
+
+  const nameInput = document.getElementById('updateCustomerName');
+  const documentInput = document.getElementById('updateCustomerDocument');
+  const phoneInput = document.getElementById('updateCustomerPhone');
+  if (nameInput) nameInput.value = customer.full_name;
+  if (documentInput) documentInput.value = customer.document_id;
+  if (phoneInput) phoneInput.value = customer.phone || '';
+
   if (updateCustomerMeasurementsContainer) {
     updateCustomerMeasurementsContainer.innerHTML = '';
     if (customer.measurements?.length) {
@@ -984,16 +1395,47 @@ function populateCustomerDetail(customer) {
       createMeasurementSetBlock(updateCustomerMeasurementsContainer);
     }
   }
+
+  renderCustomerOrderHistory(customer);
+  renderCustomers();
+  requestAnimationFrame(() => {
+    const detailRow = customersTableBody?.querySelector(
+      `.customer-detail-row[data-customer-id="${customer.id}"]`,
+    );
+    detailRow?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
 }
 
-function clearCustomerDetail() {
+function clearCustomerDetail(options = {}) {
   if (!customerDetail) return;
+  const { reRender = false } = options;
   customerDetail.classList.add('hidden');
   state.selectedCustomerId = null;
+
+  if (customerDetailTitle) {
+    customerDetailTitle.textContent = CUSTOMER_DETAIL_DEFAULT_TITLE;
+  }
+  if (customerDetailSummaryElement) {
+    customerDetailSummaryElement.textContent = CUSTOMER_DETAIL_DEFAULT_SUMMARY;
+  }
+  renderCustomerOrderHistory(null);
+
   updateCustomerForm?.reset();
   if (updateCustomerMeasurementsContainer) {
     updateCustomerMeasurementsContainer.innerHTML = '';
   }
+
+  removeCustomerDetailRow();
+
+  if (reRender) {
+    renderCustomers();
+  }
+}
+
+if (closeCustomerDetailButton) {
+  closeCustomerDetailButton.addEventListener('click', () => {
+    clearCustomerDetail({ reRender: true });
+  });
 }
 
 function populateOrderDetail(order, options = {}) {
@@ -1025,8 +1467,14 @@ function populateOrderDetail(order, options = {}) {
   if (orderDetailTailorSelect) {
     populateTailorSelect(orderDetailTailorSelect, order.assigned_tailor?.id ?? '');
   }
+  if (orderDetailInvoiceInput) {
+    orderDetailInvoiceInput.value = order.invoice_number || '';
+  }
+  if (orderDetailOriginSelect) {
+    populateEstablishmentSelect(orderDetailOriginSelect, order.origin_branch || '');
+  }
   if (orderDetailDeliveryDateInput) {
-    orderDetailDeliveryDateInput.value = toInputDateValue(order.delivery_date);
+    orderDetailDeliveryDateInput.value = toInputDateTimeValue(order.delivery_date);
   }
   if (orderDetailNotesTextarea) {
     orderDetailNotesTextarea.value = order.notes || '';
@@ -1073,6 +1521,8 @@ function clearOrderDetail(options = {}) {
   if (orderDetailContactInput) orderDetailContactInput.value = '';
   if (orderDetailStatusSelect) populateStatusSelect(orderDetailStatusSelect);
   if (orderDetailTailorSelect) populateTailorSelect(orderDetailTailorSelect);
+  if (orderDetailInvoiceInput) orderDetailInvoiceInput.value = '';
+  if (orderDetailOriginSelect) populateEstablishmentSelect(orderDetailOriginSelect);
   if (orderDetailDeliveryDateInput) orderDetailDeliveryDateInput.value = '';
   if (orderDetailNotesTextarea) orderDetailNotesTextarea.value = '';
   if (orderDetailMeasurementsContainer) {
@@ -1095,10 +1545,17 @@ async function handleOrderUpdate(event) {
     return;
   }
   const submitButton = updateOrderForm?.querySelector('button[type="submit"]');
+  const originBranchValue = orderDetailOriginSelect?.value || '';
+  const invoiceValueRaw = orderDetailInvoiceInput?.value.trim() || '';
+  if (!originBranchValue) {
+    showToast('Selecciona el establecimiento remitente.', 'error');
+    return;
+  }
   if (submitButton) {
     submitButton.disabled = true;
   }
   const deliveryDateValue = orderDetailDeliveryDateInput?.value || '';
+  const invoiceValue = invoiceValueRaw || null;
   try {
     await apiFetch(`/orders/${state.selectedOrderId}`, {
       method: 'PATCH',
@@ -1110,6 +1567,8 @@ async function handleOrderUpdate(event) {
         customer_contact: orderDetailContactInput?.value.trim() || null,
         notes: orderDetailNotesTextarea?.value.trim() || null,
         delivery_date: deliveryDateValue ? deliveryDateValue : null,
+        invoice_number: invoiceValue,
+        origin_branch: originBranchValue,
       },
     });
     showToast('Orden actualizada.', 'success');
@@ -1138,6 +1597,7 @@ if (addUpdateCustomerMeasurementSetButton) {
 if (customerSearchInput) {
   customerSearchInput.addEventListener('input', (event) => {
     state.customerSearchTerm = event.target.value;
+    state.customerPage = 1;
     renderCustomers();
   });
 }
@@ -1145,6 +1605,57 @@ if (customerSearchInput) {
 if (orderSearchInput) {
   orderSearchInput.addEventListener('input', (event) => {
     state.orderSearchTerm = event.target.value;
+    state.orderPage = 1;
+    renderOrders();
+  });
+}
+
+if (customerPageSizeSelect) {
+  customerPageSizeSelect.addEventListener('change', (event) => {
+    const newSize = getValidPageSize(event.target.value);
+    state.customerPageSize = newSize;
+    state.customerPage = 1;
+    renderCustomers();
+  });
+}
+
+if (customerPrevPageButton) {
+  customerPrevPageButton.addEventListener('click', () => {
+    if (state.customerPage > 1) {
+      state.customerPage -= 1;
+      renderCustomers();
+    }
+  });
+}
+
+if (customerNextPageButton) {
+  customerNextPageButton.addEventListener('click', () => {
+    state.customerPage += 1;
+    renderCustomers();
+  });
+}
+
+if (orderPageSizeSelect) {
+  orderPageSizeSelect.addEventListener('change', (event) => {
+    const newSize = getValidPageSize(event.target.value);
+    state.orderPageSize = newSize;
+    state.orderPage = 1;
+    renderOrders();
+  });
+}
+
+if (orderPrevPageButton) {
+  orderPrevPageButton.addEventListener('click', () => {
+    if (state.orderPage > 1) {
+      state.orderPage -= 1;
+      renderOrders();
+    }
+  });
+}
+
+if (orderNextPageButton) {
+  orderNextPageButton.addEventListener('click', () => {
+    state.orderPage += 1;
     renderOrders();
   });
 }
@@ -1270,10 +1781,17 @@ async function createOrder(event) {
   const newOrderDeliveryDate = newOrderDeliveryDateInput?.value || '';
   const newOrderNotes = document.getElementById('newOrderNotes').value.trim();
   const assignedTailorId = assignTailorSelect.value ? Number(assignTailorSelect.value) : null;
+  const invoiceNumber = newOrderInvoiceInput?.value.trim() || '';
+  const originBranch = newOrderOriginSelect?.value || '';
   const measurements = collectMeasurements();
 
   if (!selectedCustomerId) {
     showToast('Selecciona un cliente para registrar la orden.', 'error');
+    return;
+  }
+
+  if (!originBranch) {
+    showToast('Selecciona el establecimiento remitente.', 'error');
     return;
   }
 
@@ -1293,6 +1811,8 @@ async function createOrder(event) {
         measurements,
         assigned_tailor_id: assignedTailorId,
         delivery_date: newOrderDeliveryDate ? newOrderDeliveryDate : null,
+        invoice_number: invoiceNumber || null,
+        origin_branch: originBranch,
       },
     });
     await loadOrders();
@@ -1332,6 +1852,9 @@ if (orderCustomerSelect) {
   orderCustomerSelect.addEventListener('change', handleOrderCustomerChange);
 }
 
+populateEstablishmentSelect(newOrderOriginSelect);
+populateEstablishmentSelect(orderDetailOriginSelect);
+
 function parseDateValue(value) {
   if (!value) {
     return null;
@@ -1348,19 +1871,6 @@ function toTimestamp(value) {
   return parsed ? parsed.getTime() : null;
 }
 
-function compareNullableNumbers(a, b) {
-  if (a !== null && b !== null && a !== b) {
-    return a - b;
-  }
-  if (a !== null && b === null) {
-    return -1;
-  }
-  if (a === null && b !== null) {
-    return 1;
-  }
-  return 0;
-}
-
 function compareOrdersForDisplay(a, b) {
   const aDelivered = isOrderDelivered(a.status);
   const bDelivered = isOrderDelivered(b.status);
@@ -1368,29 +1878,36 @@ function compareOrdersForDisplay(a, b) {
     return aDelivered ? 1 : -1;
   }
 
-  const deliveryComparison = compareNullableNumbers(
-    toTimestamp(a.delivery_date),
-    toTimestamp(b.delivery_date),
-  );
-  if (deliveryComparison !== 0) {
-    return deliveryComparison;
+  const aDelivery = toTimestamp(a.delivery_date);
+  const bDelivery = toTimestamp(b.delivery_date);
+
+  if (aDelivered && bDelivered) {
+    if (aDelivery !== bDelivery) {
+      if (aDelivery === null) return 1;
+      if (bDelivery === null) return -1;
+      return bDelivery - aDelivery;
+    }
+  } else if (aDelivery !== bDelivery) {
+    if (aDelivery === null) return 1;
+    if (bDelivery === null) return -1;
+    return aDelivery - bDelivery;
   }
 
   if (!aDelivered) {
-    const createdComparison = compareNullableNumbers(
-      toTimestamp(a.created_at),
-      toTimestamp(b.created_at),
-    );
-    if (createdComparison !== 0) {
-      return createdComparison;
+    const aCreated = toTimestamp(a.created_at);
+    const bCreated = toTimestamp(b.created_at);
+    if (aCreated !== bCreated) {
+      if (aCreated === null) return 1;
+      if (bCreated === null) return -1;
+      return aCreated - bCreated;
     }
   } else {
-    const updatedComparison = compareNullableNumbers(
-      toTimestamp(a.updated_at),
-      toTimestamp(b.updated_at),
-    );
-    if (updatedComparison !== 0) {
-      return updatedComparison;
+    const aUpdated = toTimestamp(a.updated_at);
+    const bUpdated = toTimestamp(b.updated_at);
+    if (aUpdated !== bUpdated) {
+      if (aUpdated === null) return 1;
+      if (bUpdated === null) return -1;
+      return bUpdated - aUpdated;
     }
   }
 
@@ -1414,6 +1931,13 @@ function removeOrderDetailRow() {
     activeOrderDetailRow.parentNode.removeChild(activeOrderDetailRow);
   }
   activeOrderDetailRow = null;
+}
+
+function removeCustomerDetailRow() {
+  if (activeCustomerDetailRow && activeCustomerDetailRow.parentNode) {
+    activeCustomerDetailRow.parentNode.removeChild(activeCustomerDetailRow);
+  }
+  activeCustomerDetailRow = null;
 }
 
 function getStatusBadgeVariant(status) {
@@ -1454,8 +1978,63 @@ function createStatusBadge(status) {
 }
 
 
+function getValidPageSize(value) {
+  const numericValue = Number(value);
+  if (PAGE_SIZE_OPTIONS.includes(numericValue)) {
+    return numericValue;
+  }
+  return DEFAULT_PAGE_SIZE;
+}
+
+function updatePaginationControls({
+  infoElement,
+  prevButton,
+  nextButton,
+  pageSizeSelect,
+  currentPage,
+  totalItems,
+  pageSize,
+  emptyLabel,
+}) {
+  const totalPages = totalItems > 0 ? Math.ceil(totalItems / pageSize) : 1;
+  const normalizedPage = totalItems > 0 ? Math.min(Math.max(currentPage, 1), totalPages) : 1;
+  const startItem = totalItems === 0 ? 0 : (normalizedPage - 1) * pageSize + 1;
+  const endItem = totalItems === 0 ? 0 : Math.min(normalizedPage * pageSize, totalItems);
+
+  if (infoElement) {
+    infoElement.textContent =
+      totalItems === 0
+        ? `Sin ${emptyLabel}`
+        : `Mostrando ${startItem}-${endItem} de ${totalItems}`;
+  }
+
+  if (prevButton) {
+    const isDisabled = totalItems === 0 || normalizedPage <= 1;
+    prevButton.disabled = isDisabled;
+    prevButton.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
+  }
+
+  if (nextButton) {
+    const isDisabled = totalItems === 0 || normalizedPage >= totalPages;
+    nextButton.disabled = isDisabled;
+    nextButton.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
+  }
+
+  if (pageSizeSelect && pageSizeSelect.value !== String(pageSize)) {
+    pageSizeSelect.value = String(pageSize);
+  }
+
+  return normalizedPage;
+}
+
+
 function renderOrders() {
   if (!ordersTableBody) return;
+
+  const pageSize = getValidPageSize(state.orderPageSize);
+  if (state.orderPageSize !== pageSize) {
+    state.orderPageSize = pageSize;
+  }
 
   removeOrderDetailRow();
   if (orderDetail) {
@@ -1468,6 +2047,17 @@ function renderOrders() {
   }
 
   if (!state.orders.length) {
+    state.orderPage = 1;
+    updatePaginationControls({
+      infoElement: orderPaginationInfo,
+      prevButton: orderPrevPageButton,
+      nextButton: orderNextPageButton,
+      pageSizeSelect: orderPageSizeSelect,
+      currentPage: 1,
+      totalItems: 0,
+      pageSize,
+      emptyLabel: 'órdenes',
+    });
     const row = document.createElement('tr');
     const cell = document.createElement('td');
     cell.colSpan = ORDER_TABLE_COLUMN_COUNT;
@@ -1489,27 +2079,17 @@ function renderOrders() {
     : [...state.orders];
 
   if (!filteredOrders.length) {
-    const row = document.createElement('tr');
-    const cell = document.createElement('td');
-    cell.colSpan = 5;
-    cell.textContent = 'No se encontraron órdenes que coincidan con la búsqueda.';
-    cell.className = 'muted';
-    row.appendChild(cell);
-    ordersTableBody.appendChild(row);
-    clearOrderDetail();
-    return;
-  }
-
-  const sortedOrders = [...filteredOrders].sort(compareOrdersForDisplay);
-
-  if (
-    state.selectedOrderId !== null &&
-    sortedOrders.every((order) => order.id !== state.selectedOrderId)
-  ) {
-    clearOrderDetail();
-  }
-
-  sortedOrders.forEach((order) => {
+    state.orderPage = 1;
+    updatePaginationControls({
+      infoElement: orderPaginationInfo,
+      prevButton: orderPrevPageButton,
+      nextButton: orderNextPageButton,
+      pageSizeSelect: orderPageSizeSelect,
+      currentPage: 1,
+      totalItems: 0,
+      pageSize,
+      emptyLabel: 'órdenes',
+    });
     const row = document.createElement('tr');
     const cell = document.createElement('td');
     cell.colSpan = ORDER_TABLE_COLUMN_COUNT;
@@ -1530,9 +2110,47 @@ function renderOrders() {
     clearOrderDetail({ skipRender: true });
   }
 
+  const totalItems = sortedOrders.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  let currentPage = Number(state.orderPage) || 1;
+
+  if (state.selectedOrderId !== null) {
+    const selectedIndex = sortedOrders.findIndex((order) => order.id === state.selectedOrderId);
+    if (selectedIndex >= 0) {
+      const selectedPage = Math.floor(selectedIndex / pageSize) + 1;
+      if (selectedPage !== currentPage) {
+        currentPage = selectedPage;
+      }
+    }
+  }
+
+  currentPage = Math.min(Math.max(currentPage, 1), totalPages);
+  currentPage =
+    updatePaginationControls({
+      infoElement: orderPaginationInfo,
+      prevButton: orderPrevPageButton,
+      nextButton: orderNextPageButton,
+      pageSizeSelect: orderPageSizeSelect,
+      currentPage,
+      totalItems,
+      pageSize,
+      emptyLabel: 'órdenes',
+    }) || currentPage;
+
+  if (!Number.isFinite(currentPage) || currentPage < 1) {
+    currentPage = 1;
+  }
+
+  if (state.orderPage !== currentPage) {
+    state.orderPage = currentPage;
+  }
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedOrders = sortedOrders.slice(startIndex, startIndex + pageSize);
+
   let hasActiveDetail = false;
 
-  sortedOrders.forEach((order) => {
+  paginatedOrders.forEach((order) => {
     const row = document.createElement('tr');
     row.classList.add('order-row');
     const isSelected = state.selectedOrderId === order.id;
@@ -1554,7 +2172,8 @@ function renderOrders() {
 
     const deliveryCell = document.createElement('td');
     if (order.delivery_date) {
-      deliveryCell.textContent = formatDateOnly(order.delivery_date);
+      const deliveryLabel = formatDeliveryDateDisplay(order) || formatDateOnly(order.delivery_date);
+      deliveryCell.textContent = deliveryLabel;
       if (isDeliveryDateOverdue(order.delivery_date, order.status)) {
         deliveryCell.classList.add('overdue');
       } else if (isDeliveryDateClose(order.delivery_date, order.status)) {

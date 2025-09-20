@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
-from .models import OrderStatus, UserRole
+from .models import Establishment, OrderStatus, UserRole
 
 
 class Token(BaseModel):
@@ -103,10 +103,12 @@ class OrderBase(BaseModel):
     notes: Optional[str] = None
     assigned_tailor_id: Optional[int] = None
     delivery_date: Optional[date] = None
+    invoice_number: Optional[str] = None
+    origin_branch: Optional[Establishment] = None
 
 
 class OrderCreate(OrderBase):
-    pass
+    origin_branch: Establishment
 
 
 class OrderUpdate(BaseModel):
@@ -119,6 +121,8 @@ class OrderUpdate(BaseModel):
     notes: Optional[str] = None
     assigned_tailor_id: Optional[int] = None
     delivery_date: Optional[date] = None
+    invoice_number: Optional[str] = None
+    origin_branch: Optional[Establishment] = None
 
 
 class OrderPublic(BaseModel):
@@ -130,6 +134,8 @@ class OrderPublic(BaseModel):
     updated_at: datetime
     delivery_date: Optional[date] = None
     measurements: List[MeasurementItem] = Field(default_factory=list)
+    invoice_number: Optional[str] = None
+    origin_branch: Optional[Establishment] = None
 
     model_config = ConfigDict(from_attributes=True)
 
