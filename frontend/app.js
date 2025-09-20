@@ -1218,6 +1218,29 @@ function renderCustomers() {
     const phoneCell = document.createElement('td');
     phoneCell.textContent = customer.phone || '—';
 
+    const ordersCell = document.createElement('td');
+    const customerOrders = sortOrdersByRecency(getOrdersForCustomer(customer.id));
+    if (customerOrders.length) {
+      const tags = document.createElement('div');
+      tags.className = 'customer-order-tags';
+      const maxTags = 3;
+      customerOrders.slice(0, maxTags).forEach((orderItem) => {
+        const tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.textContent = orderItem.order_number;
+        tags.appendChild(tag);
+      });
+      if (customerOrders.length > maxTags) {
+        const remaining = document.createElement('span');
+        remaining.className = 'tag muted-tag';
+        remaining.textContent = `+${customerOrders.length - maxTags}`;
+        tags.appendChild(remaining);
+      }
+      ordersCell.appendChild(tags);
+    } else {
+      ordersCell.innerHTML = '<span class="muted">Sin órdenes</span>';
+    }
+
     const actionsCell = document.createElement('td');
     const viewButton = document.createElement('button');
     viewButton.type = 'button';
@@ -1239,6 +1262,8 @@ function renderCustomers() {
     row.appendChild(nameCell);
     row.appendChild(documentCell);
     row.appendChild(phoneCell);
+
+    row.appendChild(ordersCell);
     row.appendChild(actionsCell);
 
     customersTableBody.appendChild(row);
