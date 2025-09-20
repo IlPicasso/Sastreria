@@ -155,6 +155,13 @@ def order_number_candidates(year: int) -> Iterable[str]:
         counter += 1
 
 
+def invoice_number_candidates(year: int) -> Iterable[str]:
+    counter = 1
+    while True:
+        yield f"FAC-{year}-{counter:05d}"
+        counter += 1
+
+
 def naive_utcnow() -> datetime:
     """Return a naive UTC timestamp compatible with existing columns."""
 
@@ -353,6 +360,11 @@ def seed_orders(
     if count <= 0 or not customers:
         return []
     existing_order_numbers = set(db.execute(select(models.Order.order_number)).scalars())
+    existing_invoice_numbers = {
+        value
+        for value in db.execute(select(models.Order.invoice_number)).scalars()
+        if value
+    }
     year = datetime.now(UTC).year
     needs_entry_date = orders_table_requires_entry_date(db)
     orders_table = load_orders_table(db) if needs_entry_date else None
@@ -371,6 +383,10 @@ def seed_orders(
         if tailors and random.random() < 0.8:
             assigned_tailor_id = random.choice(tailors).id
         contact = customer.phone if random.random() < 0.7 else random_contact(customer.full_name)
+        invoice_number = unique_identifier(
+            existing_invoice_numbers, invoice_number_candidates(year)
+        )
+        existing_invoice_numbers.add(invoice_number)
         order_in = schemas.OrderCreate(
             order_number=unique_identifier(
                 existing_order_numbers, order_number_candidates(year)
@@ -384,6 +400,8 @@ def seed_orders(
             notes=random.choice(ORDER_NOTES) if random.random() < 0.7 else None,
             assigned_tailor_id=assigned_tailor_id,
             delivery_date=random_delivery_date(status),
+            invoice_number=invoice_number,
+            origin_branch=random.choice(list(models.Establishment)),
         )
         if needs_entry_date and orders_table is not None:
             entry_date = random_entry_date(order_in.delivery_date)
@@ -399,6 +417,8 @@ def seed_orders(
                 "notes": order_in.notes,
                 "assigned_tailor_id": order_in.assigned_tailor_id,
                 "delivery_date": order_in.delivery_date,
+                "invoice_number": order_in.invoice_number,
+                "origin_branch": order_in.origin_branch.value,
                 "entry_date": entry_date,
                 "created_at": now,
                 "updated_at": now,
