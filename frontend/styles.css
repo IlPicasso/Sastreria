@@ -391,6 +391,20 @@ button[disabled] {
   gap: 1.25rem;
 }
 
+.customer-detail-row td {
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.customer-detail-cell {
+  padding: 0;
+}
+
+.customer-detail-cell .customer-detail {
+  margin: 0;
+}
+
 .customer-detail-header {
   display: flex;
   justify-content: space-between;
@@ -452,6 +466,13 @@ button[disabled] {
   font-size: 0.85rem;
 }
 
+.customer-order-history-item-invoice {
+  margin: 0;
+  font-weight: 600;
+  color: var(--primary-dark);
+}
+
+=======
 
 .customer-order-tags {
   display: flex;
@@ -489,6 +510,7 @@ button[disabled] {
   .order-search input {
     width: 100%;
   }
+
 
   .table-pagination {
     width: 100%;
@@ -782,6 +804,24 @@ th {
 
 .customer-row.is-selected td {
   border-bottom-color: transparent;
+}
+
+
+.customer-order-count-cell {
+  text-align: center;
+}
+
+.customer-order-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(31, 122, 140, 0.18);
+  color: var(--primary-dark);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .order-detail-row td {

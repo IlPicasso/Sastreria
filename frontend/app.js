@@ -1,6 +1,8 @@
 const API_BASE_URL = window.API_BASE_URL || 'http://localhost:8000';
 const DEFAULT_PAGE_SIZE = 10;
 const PAGE_SIZE_OPTIONS = [10, 15, 20, 25, 30, 35, 40, 45, 50];
+const ESTABLISHMENTS = ['Urdesa', 'Batan', 'Indie'];
+
 
 const state = {
   statuses: [],
@@ -68,6 +70,8 @@ const measurementsList = document.getElementById('measurementsList');
 const addMeasurementButton = document.getElementById('addMeasurementButton');
 const statusSelect = document.getElementById('newOrderStatus');
 const assignTailorSelect = document.getElementById('assignTailor');
+const newOrderInvoiceInput = document.getElementById('newOrderInvoice');
+const newOrderOriginSelect = document.getElementById('newOrderOrigin');
 const newOrderDeliveryDateInput = document.getElementById('newOrderDeliveryDate');
 const orderDetail = document.getElementById('orderDetail');
 const updateOrderForm = document.getElementById('updateOrderForm');
@@ -79,6 +83,8 @@ const orderDetailDocumentInput = document.getElementById('orderDetailDocument');
 const orderDetailContactInput = document.getElementById('orderDetailContact');
 const orderDetailStatusSelect = document.getElementById('orderDetailStatus');
 const orderDetailTailorSelect = document.getElementById('orderDetailTailor');
+const orderDetailInvoiceInput = document.getElementById('orderDetailInvoice');
+const orderDetailOriginSelect = document.getElementById('orderDetailOrigin');
 const orderDetailDeliveryDateInput = document.getElementById('orderDetailDeliveryDate');
 const orderDetailNotesTextarea = document.getElementById('orderDetailNotes');
 const orderDetailMeasurementsContainer = document.getElementById('orderDetailMeasurements');
@@ -105,7 +111,9 @@ const CUSTOMER_ORDER_HISTORY_EMPTY_MESSAGE = 'No tiene órdenes registradas.';
 
 let activeDashboardTab = 'orderListPanel';
 const ORDER_TABLE_COLUMN_COUNT = 6;
+const CUSTOMER_TABLE_COLUMN_COUNT = 5;
 let activeOrderDetailRow = null;
+let activeCustomerDetailRow = null;
 
 
 function setActiveView(viewId) {
@@ -460,6 +468,32 @@ function populateTailorSelect(selectElement, selectedId = '') {
   });
 }
 
+function populateEstablishmentSelect(selectElement, selectedValue = '') {
+  if (!selectElement) return;
+  const normalizedSelected = selectedValue || '';
+  selectElement.innerHTML = '';
+
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Selecciona un establecimiento';
+  placeholder.disabled = true;
+  placeholder.hidden = true;
+  if (!normalizedSelected) {
+    placeholder.selected = true;
+  }
+  selectElement.appendChild(placeholder);
+
+  ESTABLISHMENTS.forEach((branch) => {
+    const option = document.createElement('option');
+    option.value = branch;
+    option.textContent = branch;
+    if (branch === normalizedSelected) {
+      option.selected = true;
+    }
+    selectElement.appendChild(option);
+  });
+}
+
 function populateCustomerSelect(selectElement, selectedId = '') {
   if (!selectElement) return;
   selectElement.innerHTML = '';
@@ -633,10 +667,12 @@ function resetCreateOrderForm() {
   createOrderForm.reset();
   populateStatusSelect(statusSelect);
   populateTailorSelect(assignTailorSelect);
+  populateEstablishmentSelect(newOrderOriginSelect);
   populateCustomerSelect(orderCustomerSelect);
   const documentInput = document.getElementById('newCustomerDocument');
   const nameInput = document.getElementById('newCustomerName');
   const contactInput = document.getElementById('newCustomerContact');
+  if (newOrderInvoiceInput) newOrderInvoiceInput.value = '';
   if (documentInput) documentInput.value = '';
   if (nameInput) nameInput.value = '';
   if (contactInput) contactInput.value = '';
@@ -1082,9 +1118,19 @@ function renderCustomerOrderHistory(customer) {
     header.appendChild(orderNumber);
     header.appendChild(statusWrapper);
 
+    const invoice = document.createElement('p');
+    invoice.className = 'customer-order-history-item-invoice';
+    invoice.textContent = order.invoice_number
+      ? `Factura: ${order.invoice_number}`
+      : 'Factura: Sin número registrado';
+
     const meta = document.createElement('p');
     meta.className = 'customer-order-history-item-meta';
     const parts = [];
+    if (order.origin_branch) {
+      parts.push(`Establecimiento: ${order.origin_branch}`);
+    }
+
     const deliveryLabel = formatDeliveryDateDisplay(order);
     if (deliveryLabel) {
       parts.push(`Entrega: ${deliveryLabel}`);
@@ -1095,6 +1141,8 @@ function renderCustomerOrderHistory(customer) {
     meta.textContent = parts.length ? parts.join(' • ') : 'Sin información adicional disponible.';
 
     item.appendChild(header);
+    item.appendChild(invoice);
+
     item.appendChild(meta);
     list.appendChild(item);
   });
@@ -1108,6 +1156,7 @@ function renderCustomers() {
     state.customerPageSize = pageSize;
   }
   customersTableBody.innerHTML = '';
+  activeCustomerDetailRow = null;
   if (customerSearchInput && customerSearchInput.value !== state.customerSearchTerm) {
     customerSearchInput.value = state.customerSearchTerm;
   }
@@ -1125,7 +1174,8 @@ function renderCustomers() {
     });
     const row = document.createElement('tr');
     const cell = document.createElement('td');
-    cell.colSpan = 4;
+    cell.colSpan = CUSTOMER_TABLE_COLUMN_COUNT;
+
     cell.textContent = 'No hay clientes registrados aún.';
     cell.className = 'muted';
     row.appendChild(cell);
@@ -1164,7 +1214,8 @@ function renderCustomers() {
     });
     const row = document.createElement('tr');
     const cell = document.createElement('td');
-    cell.colSpan = 4;
+    cell.colSpan = CUSTOMER_TABLE_COLUMN_COUNT;
+
     cell.textContent = 'No se encontraron clientes que coincidan con la búsqueda.';
     cell.className = 'muted';
     row.appendChild(cell);
@@ -1175,6 +1226,19 @@ function renderCustomers() {
   const totalItems = filteredCustomers.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   let currentPage = Number(state.customerPage) || 1;
+
+  if (state.selectedCustomerId !== null) {
+    const selectedIndex = filteredCustomers.findIndex(
+      (customer) => customer.id === state.selectedCustomerId,
+    );
+    if (selectedIndex >= 0) {
+      const selectedPage = Math.floor(selectedIndex / pageSize) + 1;
+      if (selectedPage !== currentPage) {
+        currentPage = selectedPage;
+      }
+    }
+  }
+
   currentPage = Math.min(Math.max(currentPage, 1), totalPages);
   currentPage =
     updatePaginationControls({
@@ -1199,6 +1263,9 @@ function renderCustomers() {
   const startIndex = (currentPage - 1) * pageSize;
   const paginatedCustomers = filteredCustomers.slice(startIndex, startIndex + pageSize);
 
+  let detailRendered = false;
+
+
   paginatedCustomers.forEach((customer) => {
     const row = document.createElement('tr');
     row.classList.add('customer-row');
@@ -1209,6 +1276,10 @@ function renderCustomers() {
       row.classList.add('is-selected');
     }
 
+    const ordersForCustomer = getOrdersForCustomer(customer.id);
+    const orderCount = ordersForCustomer.length;
+
+
     const nameCell = document.createElement('td');
     nameCell.textContent = customer.full_name;
 
@@ -1218,27 +1289,19 @@ function renderCustomers() {
     const phoneCell = document.createElement('td');
     phoneCell.textContent = customer.phone || '—';
 
-    const ordersCell = document.createElement('td');
-    const customerOrders = sortOrdersByRecency(getOrdersForCustomer(customer.id));
-    if (customerOrders.length) {
-      const tags = document.createElement('div');
-      tags.className = 'customer-order-tags';
-      const maxTags = 3;
-      customerOrders.slice(0, maxTags).forEach((orderItem) => {
-        const tag = document.createElement('span');
-        tag.className = 'tag';
-        tag.textContent = orderItem.order_number;
-        tags.appendChild(tag);
-      });
-      if (customerOrders.length > maxTags) {
-        const remaining = document.createElement('span');
-        remaining.className = 'tag muted-tag';
-        remaining.textContent = `+${customerOrders.length - maxTags}`;
-        tags.appendChild(remaining);
-      }
-      ordersCell.appendChild(tags);
+    const orderCountCell = document.createElement('td');
+    orderCountCell.className = 'customer-order-count-cell';
+    if (orderCount > 0) {
+      const badge = document.createElement('span');
+      badge.className = 'customer-order-count-badge';
+      badge.textContent = orderCount;
+      const label =
+        orderCount === 1 ? '1 orden registrada' : `${orderCount} órdenes registradas`;
+      badge.title = label;
+      badge.setAttribute('aria-label', label);
+      orderCountCell.appendChild(badge);
     } else {
-      ordersCell.innerHTML = '<span class="muted">Sin órdenes</span>';
+      orderCountCell.innerHTML = '<span class="muted">0</span>';
     }
 
     const actionsCell = document.createElement('td');
@@ -1262,12 +1325,35 @@ function renderCustomers() {
     row.appendChild(nameCell);
     row.appendChild(documentCell);
     row.appendChild(phoneCell);
-
-    row.appendChild(ordersCell);
+    row.appendChild(orderCountCell);
     row.appendChild(actionsCell);
 
     customersTableBody.appendChild(row);
+
+    if (isSelected && customerDetail) {
+      const detailRow = document.createElement('tr');
+      detailRow.className = 'customer-detail-row';
+      detailRow.dataset.customerId = String(customer.id);
+
+      const detailCell = document.createElement('td');
+      detailCell.colSpan = CUSTOMER_TABLE_COLUMN_COUNT;
+      detailCell.className = 'customer-detail-cell';
+      detailCell.appendChild(customerDetail);
+
+      detailRow.appendChild(detailCell);
+      customersTableBody.appendChild(detailRow);
+      activeCustomerDetailRow = detailRow;
+      customerDetail.classList.remove('hidden');
+      viewButton.textContent = 'Ocultar detalle';
+      viewButton.setAttribute('aria-expanded', 'true');
+      detailRendered = true;
+    }
   });
+
+  if (!detailRendered && customerDetail) {
+    customerDetail.classList.add('hidden');
+    activeCustomerDetailRow = null;
+  }
 }
 
 function populateCustomerDetail(customer) {
@@ -1279,6 +1365,8 @@ function populateCustomerDetail(customer) {
     customerDetailTitle.textContent = customer.full_name || CUSTOMER_DETAIL_DEFAULT_TITLE;
   }
 
+  const ordersForCustomer = getOrdersForCustomer(customer.id);
+
   if (customerDetailSummaryElement) {
     const summaryParts = [];
     if (customer.document_id) {
@@ -1286,6 +1374,13 @@ function populateCustomerDetail(customer) {
     }
     if (customer.phone) {
       summaryParts.push(`Teléfono: ${customer.phone}`);
+    }
+    if (ordersForCustomer.length) {
+      const label =
+        ordersForCustomer.length === 1
+          ? '1 orden registrada'
+          : `${ordersForCustomer.length} órdenes registradas`;
+      summaryParts.push(label);
     }
     customerDetailSummaryElement.textContent =
       summaryParts.length ? summaryParts.join(' • ') : 'Sin datos de contacto registrados.';
@@ -1310,18 +1405,14 @@ function populateCustomerDetail(customer) {
   }
 
   renderCustomerOrderHistory(customer);
+  renderCustomers();
+  requestAnimationFrame(() => {
+    const detailRow = customersTableBody?.querySelector(
+      `.customer-detail-row[data-customer-id="${customer.id}"]`,
+    );
+    detailRow?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
 
-  if (customersTableBody) {
-    customersTableBody.querySelectorAll('.customer-row').forEach((row) => {
-      const matches = Number(row.dataset.customerId) === Number(customer.id);
-      row.classList.toggle('is-selected', matches);
-      const toggleButton = row.querySelector('button[data-action="toggle-customer-detail"]');
-      if (toggleButton) {
-        toggleButton.textContent = matches ? 'Ocultar detalle' : 'Ver detalle';
-        toggleButton.setAttribute('aria-expanded', matches ? 'true' : 'false');
-      }
-    });
-  }
 }
 
 function clearCustomerDetail(options = {}) {
@@ -1342,6 +1433,7 @@ function clearCustomerDetail(options = {}) {
   if (updateCustomerMeasurementsContainer) {
     updateCustomerMeasurementsContainer.innerHTML = '';
   }
+
 
   if (!reRender && customersTableBody) {
     customersTableBody.querySelectorAll('.customer-row').forEach((row) => {
@@ -1394,6 +1486,12 @@ function populateOrderDetail(order, options = {}) {
   if (orderDetailTailorSelect) {
     populateTailorSelect(orderDetailTailorSelect, order.assigned_tailor?.id ?? '');
   }
+  if (orderDetailInvoiceInput) {
+    orderDetailInvoiceInput.value = order.invoice_number || '';
+  }
+  if (orderDetailOriginSelect) {
+    populateEstablishmentSelect(orderDetailOriginSelect, order.origin_branch || '');
+  }
   if (orderDetailDeliveryDateInput) {
     orderDetailDeliveryDateInput.value = toInputDateTimeValue(order.delivery_date);
   }
@@ -1442,6 +1540,8 @@ function clearOrderDetail(options = {}) {
   if (orderDetailContactInput) orderDetailContactInput.value = '';
   if (orderDetailStatusSelect) populateStatusSelect(orderDetailStatusSelect);
   if (orderDetailTailorSelect) populateTailorSelect(orderDetailTailorSelect);
+  if (orderDetailInvoiceInput) orderDetailInvoiceInput.value = '';
+  if (orderDetailOriginSelect) populateEstablishmentSelect(orderDetailOriginSelect);
   if (orderDetailDeliveryDateInput) orderDetailDeliveryDateInput.value = '';
   if (orderDetailNotesTextarea) orderDetailNotesTextarea.value = '';
   if (orderDetailMeasurementsContainer) {
@@ -1464,10 +1564,17 @@ async function handleOrderUpdate(event) {
     return;
   }
   const submitButton = updateOrderForm?.querySelector('button[type="submit"]');
+  const originBranchValue = orderDetailOriginSelect?.value || '';
+  const invoiceValueRaw = orderDetailInvoiceInput?.value.trim() || '';
+  if (!originBranchValue) {
+    showToast('Selecciona el establecimiento remitente.', 'error');
+    return;
+  }
   if (submitButton) {
     submitButton.disabled = true;
   }
   const deliveryDateValue = orderDetailDeliveryDateInput?.value || '';
+  const invoiceValue = invoiceValueRaw || null;
   try {
     await apiFetch(`/orders/${state.selectedOrderId}`, {
       method: 'PATCH',
@@ -1479,6 +1586,8 @@ async function handleOrderUpdate(event) {
         customer_contact: orderDetailContactInput?.value.trim() || null,
         notes: orderDetailNotesTextarea?.value.trim() || null,
         delivery_date: deliveryDateValue ? deliveryDateValue : null,
+        invoice_number: invoiceValue,
+        origin_branch: originBranchValue,
       },
     });
     showToast('Orden actualizada.', 'success');
@@ -1691,10 +1800,17 @@ async function createOrder(event) {
   const newOrderDeliveryDate = newOrderDeliveryDateInput?.value || '';
   const newOrderNotes = document.getElementById('newOrderNotes').value.trim();
   const assignedTailorId = assignTailorSelect.value ? Number(assignTailorSelect.value) : null;
+  const invoiceNumber = newOrderInvoiceInput?.value.trim() || '';
+  const originBranch = newOrderOriginSelect?.value || '';
   const measurements = collectMeasurements();
 
   if (!selectedCustomerId) {
     showToast('Selecciona un cliente para registrar la orden.', 'error');
+    return;
+  }
+
+  if (!originBranch) {
+    showToast('Selecciona el establecimiento remitente.', 'error');
     return;
   }
 
@@ -1714,6 +1830,8 @@ async function createOrder(event) {
         measurements,
         assigned_tailor_id: assignedTailorId,
         delivery_date: newOrderDeliveryDate ? newOrderDeliveryDate : null,
+        invoice_number: invoiceNumber || null,
+        origin_branch: originBranch,
       },
     });
     await loadOrders();
@@ -1752,6 +1870,9 @@ function handleOrderCustomerChange() {
 if (orderCustomerSelect) {
   orderCustomerSelect.addEventListener('change', handleOrderCustomerChange);
 }
+
+populateEstablishmentSelect(newOrderOriginSelect);
+populateEstablishmentSelect(orderDetailOriginSelect);
 
 function parseDateValue(value) {
   if (!value) {
@@ -1829,6 +1950,13 @@ function removeOrderDetailRow() {
     activeOrderDetailRow.parentNode.removeChild(activeOrderDetailRow);
   }
   activeOrderDetailRow = null;
+}
+
+function removeCustomerDetailRow() {
+  if (activeCustomerDetailRow && activeCustomerDetailRow.parentNode) {
+    activeCustomerDetailRow.parentNode.removeChild(activeCustomerDetailRow);
+  }
+  activeCustomerDetailRow = null;
 }
 
 function getStatusBadgeVariant(status) {
