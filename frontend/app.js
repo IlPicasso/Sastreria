@@ -194,19 +194,49 @@ function formatDateOnly(dateString) {
   }
 }
 
-function toInputDateValue(dateString) {
-  if (!dateString) return '';
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-    return dateString;
-  }
-  const parsedDate = new Date(dateString);
-  if (Number.isNaN(parsedDate.getTime())) {
+function formatDateTimeForInput(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
     return '';
   }
-  const year = parsedDate.getFullYear();
-  const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
-  const day = String(parsedDate.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function toInputDateTimeValue(value) {
+  if (!value) {
+    return '';
+  }
+
+  if (value instanceof Date) {
+    return formatDateTimeForInput(value);
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return '';
+    }
+    const match = trimmed.match(/^(\d{4}-\d{2}-\d{2})[T\s](\d{2}):(\d{2})/);
+    if (match) {
+      const [, datePart, hourPart, minutePart] = match;
+      return `${datePart}T${hourPart}:${minutePart}`;
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return `${trimmed}T00:00`;
+    }
+    const parsed = new Date(trimmed);
+    return formatDateTimeForInput(parsed);
+  }
+
+  if (typeof value === 'number') {
+    return formatDateTimeForInput(new Date(value));
+  }
+
+  return '';
 }
 
 function normalizeText(value) {
@@ -340,6 +370,12 @@ function renderPublicOrderResults(orders) {
             .map((item) => `<span class="tag">${item.nombre}: ${item.valor}</span>`)
             .join('')}</div>`
         : '<p class="muted">No hay medidas registradas.</p>';
+      const deliveryLabel = order.delivery_date
+        ? formatDeliveryDateDisplay(order) || formatDateOnly(order.delivery_date)
+        : '';
+      const deliveryInfo = deliveryLabel
+        ? `<p><strong>Fecha tentativa de entrega:</strong> ${deliveryLabel}</p>`
+        : `<p><strong>Fecha tentativa de entrega:</strong> <span class="muted">Sin definir</span></p>`;
       return `
         <article class="public-order-card">
           <header>
@@ -348,6 +384,7 @@ function renderPublicOrderResults(orders) {
             ${order.customer_document ? `<p><strong>Documento:</strong> ${order.customer_document}</p>` : ''}
           </header>
           <p><strong>Estado:</strong> ${order.status}</p>
+          ${deliveryInfo}
           ${order.notes ? `<p><strong>Notas:</strong> ${order.notes}</p>` : ''}
           <p><strong>Última actualización:</strong> ${formatDate(order.updated_at)}</p>
           ${measurements}
@@ -1088,7 +1125,7 @@ function renderCustomers() {
     });
     const row = document.createElement('tr');
     const cell = document.createElement('td');
-    cell.colSpan = 5;
+    cell.colSpan = 4;
     cell.textContent = 'No hay clientes registrados aún.';
     cell.className = 'muted';
     row.appendChild(cell);
@@ -1127,7 +1164,7 @@ function renderCustomers() {
     });
     const row = document.createElement('tr');
     const cell = document.createElement('td');
-    cell.colSpan = 5;
+    cell.colSpan = 4;
     cell.textContent = 'No se encontraron clientes que coincidan con la búsqueda.';
     cell.className = 'muted';
     row.appendChild(cell);
@@ -1225,6 +1262,7 @@ function renderCustomers() {
     row.appendChild(nameCell);
     row.appendChild(documentCell);
     row.appendChild(phoneCell);
+
     row.appendChild(ordersCell);
     row.appendChild(actionsCell);
 
@@ -1357,7 +1395,7 @@ function populateOrderDetail(order, options = {}) {
     populateTailorSelect(orderDetailTailorSelect, order.assigned_tailor?.id ?? '');
   }
   if (orderDetailDeliveryDateInput) {
-    orderDetailDeliveryDateInput.value = toInputDateValue(order.delivery_date);
+    orderDetailDeliveryDateInput.value = toInputDateTimeValue(order.delivery_date);
   }
   if (orderDetailNotesTextarea) {
     orderDetailNotesTextarea.value = order.notes || '';

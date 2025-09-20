@@ -178,6 +178,7 @@
                       <th>Nombre</th>
                       <th>Documento</th>
                       <th>Teléfono</th>
+
                       <th>Órdenes previas</th>
                       <th>Acciones</th>
                     </tr>
@@ -262,8 +263,8 @@
                 <select id="newOrderStatus"></select>
               </div>
               <div class="form-row">
-                <label for="newOrderDeliveryDate">Fecha de entrega</label>
-                <input type="date" id="newOrderDeliveryDate" />
+                <label for="newOrderDeliveryDate">Fecha y hora de entrega</label>
+                <input type="datetime-local" id="newOrderDeliveryDate" />
               </div>
               <div class="form-row">
                 <label>Medidas guardadas del cliente</label>
@@ -398,8 +399,8 @@
                   <select id="orderDetailTailor"></select>
                 </div>
                 <div class="form-row">
-                  <label for="orderDetailDeliveryDate">Fecha de entrega</label>
-                  <input type="date" id="orderDetailDeliveryDate" />
+                  <label for="orderDetailDeliveryDate">Fecha y hora de entrega</label>
+                  <input type="datetime-local" id="orderDetailDeliveryDate" />
                 </div>
                 <div class="form-row">
                   <label for="orderDetailNotes">Notas</label>
