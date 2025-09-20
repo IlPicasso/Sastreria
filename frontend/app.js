@@ -3,6 +3,7 @@ const DEFAULT_PAGE_SIZE = 10;
 const PAGE_SIZE_OPTIONS = [10, 15, 20, 25, 30, 35, 40, 45, 50];
 const ESTABLISHMENTS = ['Urdesa', 'Batan', 'Indie'];
 
+
 const state = {
   statuses: [],
   token: null,
@@ -1129,6 +1130,7 @@ function renderCustomerOrderHistory(customer) {
     if (order.origin_branch) {
       parts.push(`Establecimiento: ${order.origin_branch}`);
     }
+
     const deliveryLabel = formatDeliveryDateDisplay(order);
     if (deliveryLabel) {
       parts.push(`Entrega: ${deliveryLabel}`);
@@ -1140,6 +1142,7 @@ function renderCustomerOrderHistory(customer) {
 
     item.appendChild(header);
     item.appendChild(invoice);
+
     item.appendChild(meta);
     list.appendChild(item);
   });
@@ -1172,6 +1175,7 @@ function renderCustomers() {
     const row = document.createElement('tr');
     const cell = document.createElement('td');
     cell.colSpan = CUSTOMER_TABLE_COLUMN_COUNT;
+
     cell.textContent = 'No hay clientes registrados aún.';
     cell.className = 'muted';
     row.appendChild(cell);
@@ -1211,6 +1215,7 @@ function renderCustomers() {
     const row = document.createElement('tr');
     const cell = document.createElement('td');
     cell.colSpan = CUSTOMER_TABLE_COLUMN_COUNT;
+
     cell.textContent = 'No se encontraron clientes que coincidan con la búsqueda.';
     cell.className = 'muted';
     row.appendChild(cell);
@@ -1260,6 +1265,7 @@ function renderCustomers() {
 
   let detailRendered = false;
 
+
   paginatedCustomers.forEach((customer) => {
     const row = document.createElement('tr');
     row.classList.add('customer-row');
@@ -1272,6 +1278,7 @@ function renderCustomers() {
 
     const ordersForCustomer = getOrdersForCustomer(customer.id);
     const orderCount = ordersForCustomer.length;
+
 
     const nameCell = document.createElement('td');
     nameCell.textContent = customer.full_name;
@@ -1359,6 +1366,7 @@ function populateCustomerDetail(customer) {
   }
 
   const ordersForCustomer = getOrdersForCustomer(customer.id);
+
   if (customerDetailSummaryElement) {
     const summaryParts = [];
     if (customer.document_id) {
@@ -1404,6 +1412,7 @@ function populateCustomerDetail(customer) {
     );
     detailRow?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
+
 }
 
 function clearCustomerDetail(options = {}) {
@@ -1425,7 +1434,17 @@ function clearCustomerDetail(options = {}) {
     updateCustomerMeasurementsContainer.innerHTML = '';
   }
 
-  removeCustomerDetailRow();
+
+  if (!reRender && customersTableBody) {
+    customersTableBody.querySelectorAll('.customer-row').forEach((row) => {
+      row.classList.remove('is-selected');
+      const toggleButton = row.querySelector('button[data-action="toggle-customer-detail"]');
+      if (toggleButton) {
+        toggleButton.textContent = 'Ver detalle';
+        toggleButton.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
 
   if (reRender) {
     renderCustomers();
