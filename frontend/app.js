@@ -1461,16 +1461,20 @@ function renderCustomers() {
     const displayData = getCustomerDisplayData(customer, cachedOrders);
 
     const nameCell = document.createElement('td');
+    nameCell.dataset.label = 'Nombre';
     nameCell.textContent = displayData.name || '—';
 
     const documentCell = document.createElement('td');
+    documentCell.dataset.label = 'Documento';
     documentCell.textContent = displayData.document || '—';
 
     const phoneCell = document.createElement('td');
+    phoneCell.dataset.label = 'Teléfono';
     phoneCell.textContent = displayData.contact || '—';
 
     const orderCountCell = document.createElement('td');
     orderCountCell.className = 'customer-order-count-cell';
+    orderCountCell.dataset.label = 'Órdenes';
     if (orderCount > 0) {
       const badge = document.createElement('span');
       badge.className = 'customer-order-count-badge';
@@ -1485,6 +1489,7 @@ function renderCustomers() {
     }
 
     const actionsCell = document.createElement('td');
+    actionsCell.dataset.label = 'Acciones';
     const viewButton = document.createElement('button');
     viewButton.type = 'button';
     viewButton.className = 'secondary';
@@ -2346,18 +2351,23 @@ function renderOrders() {
     }
 
     const orderCell = document.createElement('td');
-    orderCell.textContent = order.order_number || '—';
+    orderCell.dataset.label = 'Orden';
+    orderCell.innerHTML = `<strong>${order.order_number}</strong>`;
 
     const customerCell = document.createElement('td');
+    customerCell.dataset.label = 'Cliente';
     customerCell.textContent = order.customer_name || '—';
 
     const statusCell = document.createElement('td');
+    statusCell.dataset.label = 'Estado';
     statusCell.appendChild(createStatusBadge(order.status));
 
     const createdCell = document.createElement('td');
+    createdCell.dataset.label = 'Fecha de ingreso';
     createdCell.textContent = formatDate(order.created_at);
 
     const deliveryCell = document.createElement('td');
+    deliveryCell.dataset.label = 'Fecha de entrega';
     if (order.delivery_date) {
       deliveryCell.textContent = formatDeliveryDateDisplay(order);
       if (isDeliveryDateOverdue(order.delivery_date, order.status)) {
@@ -2370,6 +2380,7 @@ function renderOrders() {
     }
 
     const actionsCell = document.createElement('td');
+    actionsCell.dataset.label = 'Acciones';
     const detailButton = document.createElement('button');
     detailButton.type = 'button';
     detailButton.className = 'secondary';
