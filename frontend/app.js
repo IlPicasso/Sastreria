@@ -174,8 +174,12 @@ if (currentYearElement) {
 
 function showToast(message, type = 'info') {
   if (!toastElement) return;
+  const isError = type === 'error';
+  toastElement.setAttribute('role', isError ? 'alert' : 'status');
+  toastElement.setAttribute('aria-live', isError ? 'assertive' : 'polite');
+  toastElement.textContent = '';
   toastElement.textContent = message;
-  toastElement.className = `toast show ${type === 'error' ? 'error' : type === 'success' ? 'success' : ''}`;
+  toastElement.className = `toast show ${isError ? 'error' : type === 'success' ? 'success' : ''}`;
   setTimeout(() => {
     toastElement.classList.remove('show', 'success', 'error');
   }, 3500);
