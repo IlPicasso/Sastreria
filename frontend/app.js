@@ -11,16 +11,23 @@ const state = {
   tailors: [],
   orders: [],
   customers: [],
+  customerOptions: [],
+  customerOrdersCache: {},
   customerSearchTerm: '',
   orderSearchTerm: '',
   customerPage: 1,
   customerPageSize: DEFAULT_PAGE_SIZE,
   orderPage: 1,
   orderPageSize: DEFAULT_PAGE_SIZE,
+  customerTotal: 0,
+  orderTotal: 0,
   isCreateCustomerVisible: false,
   auditLogs: [],
   selectedCustomerId: null,
   selectedOrderId: null,
+  customerRequestId: 0,
+  orderRequestId: 0,
+  customerOptionsRequestId: 0,
 };
 
 const views = document.querySelectorAll('.view');
@@ -174,8 +181,12 @@ if (currentYearElement) {
 
 function showToast(message, type = 'info') {
   if (!toastElement) return;
+  const isError = type === 'error';
+  toastElement.setAttribute('role', isError ? 'alert' : 'status');
+  toastElement.setAttribute('aria-live', isError ? 'assertive' : 'polite');
+  toastElement.textContent = '';
   toastElement.textContent = message;
-  toastElement.className = `toast show ${type === 'error' ? 'error' : type === 'success' ? 'success' : ''}`;
+  toastElement.className = `toast show ${isError ? 'error' : type === 'success' ? 'success' : ''}`;
   setTimeout(() => {
     toastElement.classList.remove('show', 'success', 'error');
   }, 3500);
@@ -494,38 +505,77 @@ function populateEstablishmentSelect(selectElement, selectedValue = '') {
   });
 }
 
-function populateCustomerSelect(selectElement, selectedId = '') {
+function populateCustomerSelect(selectElement, selectedId) {
   if (!selectElement) return;
+  const selectedValue =
+    selectedId !== undefined && selectedId !== null && selectedId !== ''
+      ? String(selectedId)
+      : selectElement.value || '';
   selectElement.innerHTML = '';
   const placeholder = document.createElement('option');
   placeholder.value = '';
   placeholder.textContent = 'Selecciona un cliente';
+  if (!selectedValue) {
+    placeholder.selected = true;
+  }
   selectElement.appendChild(placeholder);
-  state.customers.forEach((customer) => {
+  (state.customerOptions || []).forEach((customer) => {
     const option = document.createElement('option');
     option.value = String(customer.id);
     option.textContent = `${customer.full_name} (${customer.document_id})`;
-    if (selectedId && String(selectedId) === String(customer.id)) {
+    if (selectedValue && String(selectedValue) === String(customer.id)) {
       option.selected = true;
     }
     selectElement.appendChild(option);
   });
 }
-function addMeasurementRow(data = { nombre: '', valor: '' }) {
+
+let measurementRowIdCounter = 0;
+
+function createMeasurementRowElement(data = { nombre: '', valor: '' }, onRemove) {
   const row = document.createElement('div');
   row.className = 'measurement-row';
 
+  measurementRowIdCounter += 1;
+  const rowId = `measurement-${measurementRowIdCounter}`;
+  const nameId = `${rowId}-name`;
+  const valueId = `${rowId}-value`;
+
+  const nameField = document.createElement('div');
+  nameField.className = 'measurement-field';
+
+  const nameLabel = document.createElement('label');
+  nameLabel.className = 'sr-only';
+  nameLabel.setAttribute('for', nameId);
+  nameLabel.textContent = 'Nombre de la medida';
+
   const nameInput = document.createElement('input');
   nameInput.type = 'text';
+  nameInput.id = nameId;
   nameInput.placeholder = 'Ej. Pecho';
   nameInput.value = data.nombre || '';
   nameInput.dataset.field = 'nombre';
 
+  nameField.appendChild(nameLabel);
+  nameField.appendChild(nameInput);
+
+  const valueField = document.createElement('div');
+  valueField.className = 'measurement-field';
+
+  const valueLabel = document.createElement('label');
+  valueLabel.className = 'sr-only';
+  valueLabel.setAttribute('for', valueId);
+  valueLabel.textContent = 'Valor de la medida';
+
   const valueInput = document.createElement('input');
   valueInput.type = 'text';
+  valueInput.id = valueId;
   valueInput.placeholder = 'Ej. 98 cm';
   valueInput.value = data.valor || '';
   valueInput.dataset.field = 'valor';
+
+  valueField.appendChild(valueLabel);
+  valueField.appendChild(valueInput);
 
   const removeButton = document.createElement('button');
   removeButton.type = 'button';
@@ -533,12 +583,21 @@ function addMeasurementRow(data = { nombre: '', valor: '' }) {
   removeButton.textContent = 'Eliminar';
   removeButton.addEventListener('click', () => {
     row.remove();
-    ensureMeasurementRow();
+    if (typeof onRemove === 'function') {
+      onRemove();
+    }
   });
 
-  row.appendChild(nameInput);
-  row.appendChild(valueInput);
+  row.appendChild(nameField);
+  row.appendChild(valueField);
   row.appendChild(removeButton);
+
+  return row;
+}
+
+function addMeasurementRow(data = { nombre: '', valor: '' }) {
+  if (!measurementsList) return;
+  const row = createMeasurementRowElement(data, () => ensureMeasurementRow());
   measurementsList.appendChild(row);
 }
 
@@ -553,35 +612,12 @@ if (addMeasurementButton) {
 }
 
 function addMeasurementRowToList(listElement, data = { nombre: '', valor: '' }) {
-  const row = document.createElement('div');
-  row.className = 'measurement-row';
-
-  const nameInput = document.createElement('input');
-  nameInput.type = 'text';
-  nameInput.placeholder = 'Ej. Pecho';
-  nameInput.value = data.nombre || '';
-  nameInput.dataset.field = 'nombre';
-
-  const valueInput = document.createElement('input');
-  valueInput.type = 'text';
-  valueInput.placeholder = 'Ej. 98 cm';
-  valueInput.value = data.valor || '';
-  valueInput.dataset.field = 'valor';
-
-  const removeButton = document.createElement('button');
-  removeButton.type = 'button';
-  removeButton.className = 'danger ghost';
-  removeButton.textContent = 'Eliminar';
-  removeButton.addEventListener('click', () => {
-    row.remove();
+  if (!listElement) return;
+  const row = createMeasurementRowElement(data, () => {
     if (listElement.children.length === 0) {
       addMeasurementRowToList(listElement);
     }
   });
-
-  row.appendChild(nameInput);
-  row.appendChild(valueInput);
-  row.appendChild(removeButton);
   listElement.appendChild(row);
 }
 
@@ -844,6 +880,7 @@ async function handleLogin(event) {
     await loadStatuses();
     await loadTailors();
     await loadCustomers();
+    await refreshCustomerOptions();
     await loadOrders();
     if (state.user?.role === 'administrador') {
       await loadAuditLogs();
@@ -900,12 +937,39 @@ async function loadTailors() {
   }
 }
 
-async function loadOrders() {
-  if (!state.token) return;
+async function loadOrders({ page, pageSize } = {}) {
+  if (!state.token) return null;
+  const requestedPage = Number(page);
+  const normalizedPage = Number.isFinite(requestedPage) && requestedPage > 0
+    ? requestedPage
+    : Number(state.orderPage) || 1;
+  const requestedPageSize = Number(pageSize ?? state.orderPageSize ?? DEFAULT_PAGE_SIZE);
+  const normalizedPageSize = getValidPageSize(requestedPageSize);
+  const params = new URLSearchParams({
+    page: String(Math.max(normalizedPage, 1)),
+    page_size: String(normalizedPageSize),
+  });
+  const trimmedSearch = state.orderSearchTerm.trim();
+  if (trimmedSearch) {
+    params.set('search', trimmedSearch);
+  }
+  const requestId = Date.now();
+  state.orderRequestId = requestId;
   try {
-    state.orders = await apiFetch('/orders');
+    const response = await apiFetch(`/orders?${params.toString()}`);
+    if (state.orderRequestId !== requestId) {
+      return null;
+    }
+    const items = Array.isArray(response?.items) ? response.items : [];
+    const total = typeof response?.total === 'number' ? response.total : items.length;
+    const resolvedPageSize = getValidPageSize(response?.page_size ?? normalizedPageSize);
+    const resolvedPage = response?.page && response.page > 0 ? response.page : 1;
+    state.orders = items;
+    state.orderTotal = total;
+    state.orderPageSize = resolvedPageSize;
+    state.orderPage = resolvedPage;
     if (state.selectedOrderId !== null) {
-      const selected = state.orders.find((order) => order.id === state.selectedOrderId);
+      const selected = items.find((order) => order.id === state.selectedOrderId);
       if (selected) {
         populateOrderDetail(selected, { skipRender: true, focusOnDetail: false });
       } else {
@@ -913,39 +977,149 @@ async function loadOrders() {
       }
     }
     renderOrders();
-    renderCustomers();
-    if (state.selectedCustomerId) {
-      const activeCustomer = state.customers.find(
-        (customer) => customer.id === state.selectedCustomerId,
-      );
-      if (activeCustomer) {
-        renderCustomerOrderHistory(activeCustomer);
-      }
-    }
+    return response;
   } catch (error) {
-    showToast(error.message, 'error');
+    if (state.orderRequestId === requestId) {
+      showToast(error.message, 'error');
+    }
+    return null;
   }
 }
 
-async function loadCustomers() {
-  if (!state.token) return;
+async function loadCustomers({ page, pageSize } = {}) {
+  if (!state.token) return null;
+  const requestedPage = Number(page);
+  const normalizedPage = Number.isFinite(requestedPage) && requestedPage > 0
+    ? requestedPage
+    : Number(state.customerPage) || 1;
+  const requestedPageSize = Number(pageSize ?? state.customerPageSize ?? DEFAULT_PAGE_SIZE);
+  const normalizedPageSize = getValidPageSize(requestedPageSize);
+  const params = new URLSearchParams({
+    page: String(Math.max(normalizedPage, 1)),
+    page_size: String(normalizedPageSize),
+  });
+  const trimmedSearch = state.customerSearchTerm.trim();
+  if (trimmedSearch) {
+    params.set('search', trimmedSearch);
+  }
+  const requestId = Date.now();
+  state.customerRequestId = requestId;
   try {
-    state.customers = await apiFetch('/customers');
+    const response = await apiFetch(`/customers?${params.toString()}`);
+    if (state.customerRequestId !== requestId) {
+      return null;
+    }
+    const items = Array.isArray(response?.items) ? response.items : [];
+    const total = typeof response?.total === 'number' ? response.total : items.length;
+    const resolvedPageSize = getValidPageSize(response?.page_size ?? normalizedPageSize);
+    const resolvedPage = response?.page && response.page > 0 ? response.page : 1;
+    state.customers = items;
+    state.customerTotal = total;
+    state.customerPageSize = resolvedPageSize;
+    state.customerPage = resolvedPage;
     renderCustomers();
-    populateCustomerSelect(orderCustomerSelect, state.selectedCustomerId);
+    if (orderCustomerSelect) {
+      populateCustomerSelect(orderCustomerSelect);
+      handleOrderCustomerChange();
+    }
     if (state.selectedCustomerId) {
-      const selected = state.customers.find((customer) => customer.id === state.selectedCustomerId);
+      const selected = items.find((customer) => customer.id === state.selectedCustomerId);
       if (selected) {
-        populateCustomerDetail(selected);
+        await populateCustomerDetail(selected);
       } else {
         clearCustomerDetail();
       }
     } else {
       clearCustomerDetail();
     }
+    return response;
+  } catch (error) {
+    if (state.customerRequestId === requestId) {
+      showToast(error.message, 'error');
+    }
+    return null;
+  }
+}
+
+async function refreshCustomerOptions() {
+  if (!state.token) return;
+  const pageSize = 100;
+  const requestId = Date.now();
+  state.customerOptionsRequestId = requestId;
+  const collected = [];
+  let total = 0;
+  let page = 1;
+  try {
+    while (true) {
+      const params = new URLSearchParams({
+        page: String(page),
+        page_size: String(pageSize),
+      });
+      const response = await apiFetch(`/customers?${params.toString()}`);
+      if (state.customerOptionsRequestId !== requestId) {
+        return;
+      }
+      const items = Array.isArray(response?.items) ? response.items : [];
+      total = typeof response?.total === 'number' ? response.total : total;
+      collected.push(...items);
+      if (collected.length >= total || !items.length) {
+        break;
+      }
+      page += 1;
+    }
+    state.customerOptions = collected;
+    if (orderCustomerSelect) {
+      populateCustomerSelect(orderCustomerSelect, orderCustomerSelect.value || '');
+      handleOrderCustomerChange();
+    }
+  } catch (error) {
+    if (state.customerOptionsRequestId === requestId) {
+      showToast(error.message, 'error');
+    }
+  }
+}
+
+async function fetchOrdersForCustomer(customerId) {
+  if (!state.token) return [];
+  const numericId = Number(customerId);
+  if (!Number.isFinite(numericId)) {
+    return [];
+  }
+  const cacheKey = String(numericId);
+  const pageSize = 50;
+  const collected = [];
+  let total = 0;
+  let page = 1;
+  try {
+    while (true) {
+      const params = new URLSearchParams({
+        page: String(page),
+        page_size: String(pageSize),
+        customer_id: String(numericId),
+      });
+      const response = await apiFetch(`/orders?${params.toString()}`);
+      const items = Array.isArray(response?.items) ? response.items : [];
+      total = typeof response?.total === 'number' ? response.total : total;
+      collected.push(...items);
+      if (collected.length >= total || !items.length) {
+        break;
+      }
+      page += 1;
+    }
+    state.customerOrdersCache[cacheKey] = {
+      items: sortOrdersByRecency(collected),
+      total: total || collected.length,
+      complete: true,
+    };
   } catch (error) {
     showToast(error.message, 'error');
+    state.customerOrdersCache[cacheKey] = {
+      items: sortOrdersByRecency(collected),
+      total: collected.length,
+      complete: false,
+    };
   }
+  return state.customerOrdersCache[cacheKey]?.items ?? [];
 }
 
 async function loadAuditLogs() {
@@ -968,16 +1142,23 @@ function handleLogout(auto = false) {
   state.orders = [];
   state.tailors = [];
   state.customers = [];
+  state.customerOptions = [];
+  state.customerOrdersCache = {};
   state.customerSearchTerm = '';
   state.orderSearchTerm = '';
   state.customerPage = 1;
   state.customerPageSize = DEFAULT_PAGE_SIZE;
   state.orderPage = 1;
   state.orderPageSize = DEFAULT_PAGE_SIZE;
+  state.customerTotal = 0;
+  state.orderTotal = 0;
   state.isCreateCustomerVisible = false;
   state.auditLogs = [];
   state.selectedCustomerId = null;
   state.selectedOrderId = null;
+  state.customerRequestId = 0;
+  state.orderRequestId = 0;
+  state.customerOptionsRequestId = 0;
   if (assignTailorSelect) {
     populateTailorSelect(assignTailorSelect);
   }
@@ -1065,6 +1246,11 @@ function getOrdersForCustomer(customerId) {
   if (!Number.isFinite(numericId)) {
     return [];
   }
+  const key = String(numericId);
+  const cached = state.customerOrdersCache?.[key];
+  if (cached?.items) {
+    return cached.items;
+  }
   return state.orders.filter((order) => Number(order.customer_id) === numericId);
 }
 
@@ -1118,6 +1304,13 @@ function getCustomerDisplayData(customer, ordersForCustomer = []) {
     document: normalizedDocument || fallbackDocument,
     contact: normalizedContact || fallbackContact,
   };
+}
+
+
+function showCustomerOrderHistoryLoading() {
+  if (!customerOrderHistoryContainer) return;
+  customerOrderHistoryContainer.classList.add('muted');
+  customerOrderHistoryContainer.textContent = 'Cargando historial de órdenes...';
 }
 
 
@@ -1191,121 +1384,66 @@ function renderCustomerOrderHistory(customer) {
 }
 function renderCustomers() {
   if (!customersTableBody) return;
+
   const pageSize = getValidPageSize(state.customerPageSize);
   if (state.customerPageSize !== pageSize) {
     state.customerPageSize = pageSize;
   }
+
   customersTableBody.innerHTML = '';
   activeCustomerDetailRow = null;
+
   if (customerSearchInput && customerSearchInput.value !== state.customerSearchTerm) {
     customerSearchInput.value = state.customerSearchTerm;
   }
-  if (!state.customers.length) {
-    state.customerPage = 1;
+
+  const totalItems =
+    typeof state.customerTotal === 'number'
+      ? state.customerTotal
+      : state.customers.length;
+
+  const normalizedPage =
     updatePaginationControls({
       infoElement: customerPaginationInfo,
       prevButton: customerPrevPageButton,
       nextButton: customerNextPageButton,
       pageSizeSelect: customerPageSizeSelect,
-      currentPage: 1,
-      totalItems: 0,
-      pageSize,
-      emptyLabel: 'clientes',
-    });
-    const row = document.createElement('tr');
-    const cell = document.createElement('td');
-    cell.colSpan = CUSTOMER_TABLE_COLUMN_COUNT;
-
-    cell.textContent = 'No hay clientes registrados aún.';
-    cell.className = 'muted';
-    row.appendChild(cell);
-    customersTableBody.appendChild(row);
-    clearCustomerDetail();
-    return;
-  }
-
-  const searchTerm = normalizeText(state.customerSearchTerm);
-  const filteredCustomers = searchTerm
-    ? state.customers.filter((customer) => {
-        const name = normalizeText(customer.full_name);
-        const documentId = normalizeText(customer.document_id);
-        return name.includes(searchTerm) || documentId.includes(searchTerm);
-      })
-    : state.customers;
-
-  if (
-    state.selectedCustomerId &&
-    filteredCustomers.every((customer) => customer.id !== state.selectedCustomerId)
-  ) {
-    clearCustomerDetail();
-  }
-
-  if (!filteredCustomers.length) {
-    state.customerPage = 1;
-    updatePaginationControls({
-      infoElement: customerPaginationInfo,
-      prevButton: customerPrevPageButton,
-      nextButton: customerNextPageButton,
-      pageSizeSelect: customerPageSizeSelect,
-      currentPage: 1,
-      totalItems: 0,
-      pageSize,
-      emptyLabel: 'clientes',
-    });
-    const row = document.createElement('tr');
-    const cell = document.createElement('td');
-    cell.colSpan = CUSTOMER_TABLE_COLUMN_COUNT;
-
-    cell.textContent = 'No se encontraron clientes que coincidan con la búsqueda.';
-    cell.className = 'muted';
-    row.appendChild(cell);
-    customersTableBody.appendChild(row);
-    return;
-  }
-
-  const totalItems = filteredCustomers.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  let currentPage = Number(state.customerPage) || 1;
-
-  if (state.selectedCustomerId !== null) {
-    const selectedIndex = filteredCustomers.findIndex(
-      (customer) => customer.id === state.selectedCustomerId,
-    );
-    if (selectedIndex >= 0) {
-      const selectedPage = Math.floor(selectedIndex / pageSize) + 1;
-      if (selectedPage !== currentPage) {
-        currentPage = selectedPage;
-      }
-    }
-  }
-
-  currentPage = Math.min(Math.max(currentPage, 1), totalPages);
-  currentPage =
-    updatePaginationControls({
-      infoElement: customerPaginationInfo,
-      prevButton: customerPrevPageButton,
-      nextButton: customerNextPageButton,
-      pageSizeSelect: customerPageSizeSelect,
-      currentPage,
+      currentPage: state.customerPage || 1,
       totalItems,
       pageSize,
       emptyLabel: 'clientes',
-    }) || currentPage;
+    }) || (state.customerPage || 1);
 
-  if (!Number.isFinite(currentPage) || currentPage < 1) {
-    currentPage = 1;
+  if (state.customerPage !== normalizedPage) {
+    state.customerPage = normalizedPage;
   }
 
-  if (state.customerPage !== currentPage) {
-    state.customerPage = currentPage;
+  if (!state.customers.length) {
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = CUSTOMER_TABLE_COLUMN_COUNT;
+    const hasSearch = Boolean(state.customerSearchTerm.trim());
+    if (totalItems === 0) {
+      cell.textContent = hasSearch
+        ? 'No se encontraron clientes que coincidan con la búsqueda.'
+        : 'No hay clientes registrados aún.';
+      clearCustomerDetail();
+    } else {
+      cell.textContent = 'No hay clientes para la página seleccionada.';
+    }
+    cell.className = 'muted';
+    row.appendChild(cell);
+    customersTableBody.appendChild(row);
+    if (customerDetail) {
+      customerDetail.classList.add('hidden');
+      activeCustomerDetailRow = null;
+    }
+    return;
   }
-
-  const startIndex = (currentPage - 1) * pageSize;
-  const paginatedCustomers = filteredCustomers.slice(startIndex, startIndex + pageSize);
 
   let detailRendered = false;
 
-  paginatedCustomers.forEach((customer) => {
+  state.customers.forEach((customer) => {
     const row = document.createElement('tr');
     row.classList.add('customer-row');
     row.dataset.customerId = String(customer.id);
@@ -1315,10 +1453,12 @@ function renderCustomers() {
       row.classList.add('is-selected');
     }
 
-    const ordersForCustomer = getOrdersForCustomer(customer.id);
-    const orderCount = ordersForCustomer.length;
-    const displayData = getCustomerDisplayData(customer, ordersForCustomer);
-
+    const cachedOrders = getOrdersForCustomer(customer.id);
+    const orderCount =
+      typeof customer.order_count === 'number'
+        ? customer.order_count
+        : cachedOrders.length;
+    const displayData = getCustomerDisplayData(customer, cachedOrders);
 
     const nameCell = document.createElement('td');
     nameCell.dataset.label = 'Nombre';
@@ -1331,7 +1471,6 @@ function renderCustomers() {
     const phoneCell = document.createElement('td');
     phoneCell.dataset.label = 'Teléfono';
     phoneCell.textContent = displayData.contact || '—';
-
 
     const orderCountCell = document.createElement('td');
     orderCountCell.className = 'customer-order-count-cell';
@@ -1359,11 +1498,11 @@ function renderCustomers() {
     viewButton.setAttribute('aria-controls', 'customerDetail');
     viewButton.textContent = isSelected ? 'Ocultar detalle' : 'Ver detalle';
     viewButton.setAttribute('aria-expanded', isSelected ? 'true' : 'false');
-    viewButton.addEventListener('click', () => {
+    viewButton.addEventListener('click', async () => {
       if (state.selectedCustomerId === customer.id) {
         clearCustomerDetail({ reRender: true });
       } else {
-        populateCustomerDetail(customer);
+        await populateCustomerDetail(customer);
       }
     });
     actionsCell.appendChild(viewButton);
@@ -1402,10 +1541,24 @@ function renderCustomers() {
   }
 }
 
-function populateCustomerDetail(customer) {
+async function populateCustomerDetail(customer) {
   if (!customerDetail) return;
   state.selectedCustomerId = customer.id;
   customerDetail.classList.remove('hidden');
+
+  const cacheKey = String(customer.id);
+  const expectedOrderCount =
+    typeof customer.order_count === 'number' ? customer.order_count : undefined;
+  const cached = state.customerOrdersCache[cacheKey];
+  const cachedItems = cached?.items ?? [];
+  const needsFetch =
+    expectedOrderCount !== undefined &&
+    (cached?.complete !== true || cachedItems.length < expectedOrderCount);
+
+  if (needsFetch) {
+    showCustomerOrderHistoryLoading();
+    await fetchOrdersForCustomer(customer.id);
+  }
 
   const ordersForCustomer = getOrdersForCustomer(customer.id);
   const displayData = getCustomerDisplayData(customer, ordersForCustomer);
@@ -1421,13 +1574,14 @@ function populateCustomerDetail(customer) {
     }
     if (displayData.contact) {
       summaryParts.push(`Teléfono: ${displayData.contact}`);
-
     }
-    if (ordersForCustomer.length) {
+    const orderCountForSummary =
+      typeof expectedOrderCount === 'number' ? expectedOrderCount : ordersForCustomer.length;
+    if (orderCountForSummary > 0) {
       const label =
-        ordersForCustomer.length === 1
+        orderCountForSummary === 1
           ? '1 orden registrada'
-          : `${ordersForCustomer.length} órdenes registradas`;
+          : `${orderCountForSummary} órdenes registradas`;
       summaryParts.push(label);
     }
     customerDetailSummaryElement.textContent =
@@ -1610,6 +1764,8 @@ async function handleOrderUpdate(event) {
   if (submitButton) {
     submitButton.disabled = true;
   }
+  const currentOrder = state.orders.find((order) => order.id === state.selectedOrderId);
+  const affectedCustomerId = currentOrder?.customer_id;
   const deliveryDateValue = orderDetailDeliveryDateInput?.value || '';
   const invoiceValue = invoiceValueRaw || null;
   try {
@@ -1627,8 +1783,19 @@ async function handleOrderUpdate(event) {
         origin_branch: originBranchValue,
       },
     });
+    if (affectedCustomerId) {
+      delete state.customerOrdersCache[String(affectedCustomerId)];
+    }
     showToast('Orden actualizada.', 'success');
     await loadOrders();
+    if (affectedCustomerId && state.selectedCustomerId === affectedCustomerId) {
+      const refreshedCustomer = state.customers.find(
+        (customer) => customer.id === affectedCustomerId,
+      );
+      if (refreshedCustomer) {
+        await populateCustomerDetail(refreshedCustomer);
+      }
+    }
   } catch (error) {
     showToast(error.message, 'error');
   } finally {
@@ -1650,11 +1817,19 @@ if (addUpdateCustomerMeasurementSetButton) {
   });
 }
 
+let customerSearchDebounce = null;
+let orderSearchDebounce = null;
+
 if (customerSearchInput) {
   customerSearchInput.addEventListener('input', (event) => {
     state.customerSearchTerm = event.target.value;
     state.customerPage = 1;
-    renderCustomers();
+    if (customerSearchDebounce) {
+      clearTimeout(customerSearchDebounce);
+    }
+    customerSearchDebounce = setTimeout(() => {
+      loadCustomers({ page: 1 });
+    }, 250);
   });
 }
 
@@ -1662,7 +1837,12 @@ if (orderSearchInput) {
   orderSearchInput.addEventListener('input', (event) => {
     state.orderSearchTerm = event.target.value;
     state.orderPage = 1;
-    renderOrders();
+    if (orderSearchDebounce) {
+      clearTimeout(orderSearchDebounce);
+    }
+    orderSearchDebounce = setTimeout(() => {
+      loadOrders({ page: 1 });
+    }, 250);
   });
 }
 
@@ -1671,23 +1851,26 @@ if (customerPageSizeSelect) {
     const newSize = getValidPageSize(event.target.value);
     state.customerPageSize = newSize;
     state.customerPage = 1;
-    renderCustomers();
+    loadCustomers({ page: 1, pageSize: newSize });
   });
 }
 
 if (customerPrevPageButton) {
   customerPrevPageButton.addEventListener('click', () => {
-    if (state.customerPage > 1) {
-      state.customerPage -= 1;
-      renderCustomers();
+    const currentPage = Number(state.customerPage) || 1;
+    if (currentPage > 1) {
+      const previousPage = currentPage - 1;
+      state.customerPage = previousPage;
+      loadCustomers({ page: previousPage });
     }
   });
 }
 
 if (customerNextPageButton) {
   customerNextPageButton.addEventListener('click', () => {
-    state.customerPage += 1;
-    renderCustomers();
+    const nextPage = (Number(state.customerPage) || 1) + 1;
+    state.customerPage = nextPage;
+    loadCustomers({ page: nextPage });
   });
 }
 
@@ -1696,23 +1879,26 @@ if (orderPageSizeSelect) {
     const newSize = getValidPageSize(event.target.value);
     state.orderPageSize = newSize;
     state.orderPage = 1;
-    renderOrders();
+    loadOrders({ page: 1, pageSize: newSize });
   });
 }
 
 if (orderPrevPageButton) {
   orderPrevPageButton.addEventListener('click', () => {
-    if (state.orderPage > 1) {
-      state.orderPage -= 1;
-      renderOrders();
+    const currentPage = Number(state.orderPage) || 1;
+    if (currentPage > 1) {
+      const previousPage = currentPage - 1;
+      state.orderPage = previousPage;
+      loadOrders({ page: previousPage });
     }
   });
 }
 
 if (orderNextPageButton) {
   orderNextPageButton.addEventListener('click', () => {
-    state.orderPage += 1;
-    renderOrders();
+    const nextPage = (Number(state.orderPage) || 1) + 1;
+    state.orderPage = nextPage;
+    loadOrders({ page: nextPage });
   });
 }
 
@@ -1763,6 +1949,7 @@ if (createCustomerForm) {
         },
       });
       await loadCustomers();
+      await refreshCustomerOptions();
       setCreateCustomerVisible(false);
       showToast('Cliente registrado correctamente.', 'success');
     } catch (error) {
@@ -1797,9 +1984,10 @@ if (updateCustomerForm) {
         },
       });
       await loadCustomers();
+      await refreshCustomerOptions();
       const refreshed = state.customers.find((customer) => customer.id === state.selectedCustomerId);
       if (refreshed) {
-        populateCustomerDetail(refreshed);
+        await populateCustomerDetail(refreshed);
       }
       showToast('Cliente actualizado correctamente.', 'success');
     } catch (error) {
@@ -1821,6 +2009,7 @@ if (deleteCustomerButton) {
       showToast('Cliente eliminado correctamente.', 'success');
       state.selectedCustomerId = null;
       await loadCustomers();
+      await refreshCustomerOptions();
     } catch (error) {
       showToast(error.message, 'error');
     }
@@ -1871,7 +2060,9 @@ async function createOrder(event) {
         origin_branch: originBranch,
       },
     });
+    delete state.customerOrdersCache[String(selectedCustomerId)];
     await loadOrders();
+    await loadCustomers();
     resetCreateOrderForm();
     showToast('Orden creada correctamente.', 'success');
   } catch (error) {
@@ -1887,7 +2078,7 @@ if (createOrderForm) {
 
 function handleOrderCustomerChange() {
   const selectedId = Number(orderCustomerSelect.value);
-  const customer = state.customers.find((item) => item.id === selectedId);
+  const customer = (state.customerOptions || []).find((item) => item.id === selectedId);
   const documentInput = document.getElementById('newCustomerDocument');
   const nameInput = document.getElementById('newCustomerName');
   const contactInput = document.getElementById('newCustomerContact');
@@ -2102,113 +2293,58 @@ function renderOrders() {
     orderSearchInput.value = state.orderSearchTerm;
   }
 
+  const totalItems =
+    typeof state.orderTotal === 'number' ? state.orderTotal : state.orders.length;
+
+  const normalizedPage =
+    updatePaginationControls({
+      infoElement: orderPaginationInfo,
+      prevButton: orderPrevPageButton,
+      nextButton: orderNextPageButton,
+      pageSizeSelect: orderPageSizeSelect,
+      currentPage: state.orderPage || 1,
+      totalItems,
+      pageSize,
+      emptyLabel: 'órdenes',
+    }) || (state.orderPage || 1);
+
+  if (state.orderPage !== normalizedPage) {
+    state.orderPage = normalizedPage;
+  }
+
   if (!state.orders.length) {
-    state.orderPage = 1;
-    updatePaginationControls({
-      infoElement: orderPaginationInfo,
-      prevButton: orderPrevPageButton,
-      nextButton: orderNextPageButton,
-      pageSizeSelect: orderPageSizeSelect,
-      currentPage: 1,
-      totalItems: 0,
-      pageSize,
-      emptyLabel: 'órdenes',
-    });
     const row = document.createElement('tr');
     const cell = document.createElement('td');
     cell.colSpan = ORDER_TABLE_COLUMN_COUNT;
-    cell.textContent = 'No hay órdenes registradas todavía.';
+    const hasSearch = Boolean(state.orderSearchTerm.trim());
+    cell.textContent = totalItems === 0
+      ? hasSearch
+        ? 'No se encontraron órdenes que coincidan con la búsqueda.'
+        : 'No hay órdenes registradas todavía.'
+      : 'No hay órdenes para la página seleccionada.';
     cell.className = 'muted';
     row.appendChild(cell);
     ordersTableBody.appendChild(row);
     clearOrderDetail({ skipRender: true });
     return;
   }
-
-  const searchTerm = normalizeText(state.orderSearchTerm);
-  const filteredOrders = searchTerm
-    ? state.orders.filter((order) => {
-        const orderNumber = normalizeText(order.order_number);
-        const documentId = normalizeText(order.customer_document);
-        return orderNumber.includes(searchTerm) || documentId.includes(searchTerm);
-      })
-    : [...state.orders];
-
-  if (!filteredOrders.length) {
-    state.orderPage = 1;
-    updatePaginationControls({
-      infoElement: orderPaginationInfo,
-      prevButton: orderPrevPageButton,
-      nextButton: orderNextPageButton,
-      pageSizeSelect: orderPageSizeSelect,
-      currentPage: 1,
-      totalItems: 0,
-      pageSize,
-      emptyLabel: 'órdenes',
-    });
-    const row = document.createElement('tr');
-    const cell = document.createElement('td');
-    cell.colSpan = ORDER_TABLE_COLUMN_COUNT;
-    cell.textContent = 'No se encontraron órdenes que coincidan con la búsqueda.';
-    cell.className = 'muted';
-    row.appendChild(cell);
-    ordersTableBody.appendChild(row);
-    clearOrderDetail({ skipRender: true });
-    return;
-  }
-
-  const sortedOrders = [...filteredOrders].sort(compareOrdersForDisplay);
 
   if (
     state.selectedOrderId !== null &&
-    sortedOrders.every((order) => order.id !== state.selectedOrderId)
+    state.orders.every((order) => order.id !== state.selectedOrderId)
   ) {
     clearOrderDetail({ skipRender: true });
   }
 
-  const totalItems = sortedOrders.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  let currentPage = Number(state.orderPage) || 1;
-
-  if (state.selectedOrderId !== null) {
-    const selectedIndex = sortedOrders.findIndex((order) => order.id === state.selectedOrderId);
-    if (selectedIndex >= 0) {
-      const selectedPage = Math.floor(selectedIndex / pageSize) + 1;
-      if (selectedPage !== currentPage) {
-        currentPage = selectedPage;
-      }
-    }
-  }
-
-  currentPage = Math.min(Math.max(currentPage, 1), totalPages);
-  currentPage =
-    updatePaginationControls({
-      infoElement: orderPaginationInfo,
-      prevButton: orderPrevPageButton,
-      nextButton: orderNextPageButton,
-      pageSizeSelect: orderPageSizeSelect,
-      currentPage,
-      totalItems,
-      pageSize,
-      emptyLabel: 'órdenes',
-    }) || currentPage;
-
-  if (!Number.isFinite(currentPage) || currentPage < 1) {
-    currentPage = 1;
-  }
-
-  if (state.orderPage !== currentPage) {
-    state.orderPage = currentPage;
-  }
-
-  const startIndex = (currentPage - 1) * pageSize;
-  const paginatedOrders = sortedOrders.slice(startIndex, startIndex + pageSize);
+  const sortedOrders = [...state.orders].sort(compareOrdersForDisplay);
 
   let hasActiveDetail = false;
 
-  paginatedOrders.forEach((order) => {
+  sortedOrders.forEach((order) => {
     const row = document.createElement('tr');
     row.classList.add('order-row');
+    row.dataset.orderId = String(order.id);
+
     const isSelected = state.selectedOrderId === order.id;
     if (isSelected) {
       row.classList.add('is-selected');
@@ -2233,8 +2369,7 @@ function renderOrders() {
     const deliveryCell = document.createElement('td');
     deliveryCell.dataset.label = 'Fecha de entrega';
     if (order.delivery_date) {
-      const deliveryLabel = formatDeliveryDateDisplay(order) || formatDateOnly(order.delivery_date);
-      deliveryCell.textContent = deliveryLabel;
+      deliveryCell.textContent = formatDeliveryDateDisplay(order);
       if (isDeliveryDateOverdue(order.delivery_date, order.status)) {
         deliveryCell.classList.add('overdue');
       } else if (isDeliveryDateClose(order.delivery_date, order.status)) {
@@ -2294,6 +2429,7 @@ function renderOrders() {
     orderDetail.classList.add('hidden');
   }
 }
+
 
 function renderAuditLogs() {
   if (!auditLogTableBody) return;
