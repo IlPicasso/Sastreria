@@ -27,6 +27,27 @@ def on_startup():
     Base.metadata.create_all(bind=engine)
 
 
+def _validate_assigned_tailor(
+    db: Session, assigned_tailor_id: Optional[int]
+) -> Optional[models.User]:
+    """Ensure the provided tailor id exists and belongs to a tailor user."""
+
+    if assigned_tailor_id is None:
+        return None
+    tailor = crud.get_user(db, assigned_tailor_id)
+    if not tailor:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El sastre asignado no existe",
+        )
+    if tailor.role != models.UserRole.SASTRE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El usuario asignado no es un sastre",
+        )
+    return tailor
+
+
 @app.get("/health")
 def healthcheck() -> dict:
     return {"status": "ok"}
@@ -255,6 +276,7 @@ def create_order_endpoint(
         order_data["customer_document"] = customer.document_id
     if order_data.get("customer_contact") in (None, ""):
         order_data["customer_contact"] = customer.phone
+    _validate_assigned_tailor(db, order_data.get("assigned_tailor_id"))
     order = crud.create_order(db, schemas.OrderCreate(**order_data))
     crud.create_audit_log(
         db,
@@ -301,6 +323,8 @@ def update_order_endpoint(
             update_data["customer_document"] = new_customer.document_id
         if update_data.get("customer_contact") in (None, ""):
             update_data["customer_contact"] = new_customer.phone
+    if "assigned_tailor_id" in update_data:
+        _validate_assigned_tailor(db, update_data["assigned_tailor_id"])
     before = crud.serialize_order(order)
     updated_order = crud.update_order(db, order, schemas.OrderUpdate(**update_data))
     crud.create_audit_log(
