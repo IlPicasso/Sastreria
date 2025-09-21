@@ -30,6 +30,52 @@ const state = {
   customerOptionsRequestId: 0,
 };
 
+const TOKEN_STORAGE_KEY = 'sastreria.authToken';
+
+function getTokenStorage() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  try {
+    return window.localStorage || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function persistToken(token) {
+  const storage = getTokenStorage();
+  if (!storage) return;
+  try {
+    if (token) {
+      storage.setItem(TOKEN_STORAGE_KEY, token);
+    } else {
+      storage.removeItem(TOKEN_STORAGE_KEY);
+    }
+  } catch (error) {
+    /* ignore storage errors */
+  }
+}
+
+function readStoredToken() {
+  const storage = getTokenStorage();
+  if (!storage) return null;
+  try {
+    const storedToken = storage.getItem(TOKEN_STORAGE_KEY);
+    if (typeof storedToken !== 'string') {
+      return null;
+    }
+    const trimmedToken = storedToken.trim();
+    return trimmedToken ? trimmedToken : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function clearStoredToken() {
+  persistToken(null);
+}
+
 const views = document.querySelectorAll('.view');
 const navButtons = document.querySelectorAll('.nav-button');
 const panelNavButton = document.getElementById('panelNavButton');
@@ -862,6 +908,38 @@ function updateNavigationForAuth() {
   }
 }
 
+async function bootstrapAuthenticatedSession({ showWelcomeToast = false } = {}) {
+  state.customerSearchTerm = '';
+  state.orderSearchTerm = '';
+  if (customerSearchInput) {
+    customerSearchInput.value = '';
+  }
+  if (orderSearchInput) {
+    orderSearchInput.value = '';
+  }
+
+  await loadCurrentUser();
+  updateUserInfo();
+  await loadStatuses();
+  await loadTailors();
+  await loadCustomers();
+  await refreshCustomerOptions();
+  await loadOrders();
+  if (state.user?.role === 'administrador') {
+    await loadAuditLogs();
+  }
+
+  setCreateCustomerVisible(false);
+  resetCreateOrderForm();
+  showDashboard();
+  updateNavigationForAuth();
+  setActiveView('staff-view');
+
+  if (showWelcomeToast) {
+    showToast('Bienvenido, sesión iniciada.', 'success');
+  }
+}
+
 async function handleLogin(event) {
   event.preventDefault();
   const username = document.getElementById('username').value.trim();
@@ -869,37 +947,23 @@ async function handleLogin(event) {
   const submitButton = staffLoginForm.querySelector('button[type="submit"]');
   submitButton.disabled = true;
   try {
-    const token = await apiFetch('/auth/login', {
+    const tokenResponse = await apiFetch('/auth/login', {
       method: 'POST',
       body: { username, password },
       auth: false,
     });
-    state.token = token.access_token;
-    await loadCurrentUser();
-    updateUserInfo();
-    await loadStatuses();
-    await loadTailors();
-    await loadCustomers();
-    await refreshCustomerOptions();
-    await loadOrders();
-    if (state.user?.role === 'administrador') {
-      await loadAuditLogs();
+    const rawToken = typeof tokenResponse?.access_token === 'string' ? tokenResponse.access_token : '';
+    const accessToken = rawToken.trim();
+    if (!accessToken) {
+      throw new Error('Token de autenticación inválido.');
     }
-    showDashboard();
-    updateNavigationForAuth();
-    setActiveView('staff-view');
-    state.customerSearchTerm = '';
-    state.orderSearchTerm = '';
-    if (customerSearchInput) {
-      customerSearchInput.value = '';
-    }
-    if (orderSearchInput) {
-      orderSearchInput.value = '';
-    }
-    setCreateCustomerVisible(false);
-    resetCreateOrderForm();
-    showToast('Bienvenido, sesión iniciada.', 'success');
+    state.token = accessToken;
+    persistToken(state.token);
+    await bootstrapAuthenticatedSession({ showWelcomeToast: true });
   } catch (error) {
+    if (state.token) {
+      handleLogout(false);
+    }
     showToast(error.message, 'error');
   } finally {
     submitButton.disabled = false;
@@ -1137,6 +1201,7 @@ async function loadCurrentUser() {
 }
 
 function handleLogout(auto = false) {
+  clearStoredToken();
   state.token = null;
   state.user = null;
   state.orders = [];
@@ -1159,6 +1224,12 @@ function handleLogout(auto = false) {
   state.customerRequestId = 0;
   state.orderRequestId = 0;
   state.customerOptionsRequestId = 0;
+  if (currentUserNameElement) {
+    currentUserNameElement.textContent = '';
+  }
+  if (currentUserRoleElement) {
+    currentUserRoleElement.textContent = '';
+  }
   if (assignTailorSelect) {
     populateTailorSelect(assignTailorSelect);
   }
@@ -2489,6 +2560,29 @@ function renderAuditLogs() {
   });
 }
 
+async function restoreSessionFromStorage() {
+  const storedToken = readStoredToken();
+  if (!storedToken) {
+    updateNavigationForAuth();
+    return;
+  }
+
+  state.token = storedToken;
+  updateNavigationForAuth();
+
+  try {
+    await bootstrapAuthenticatedSession();
+  } catch (error) {
+    clearStoredToken();
+    if (state.token) {
+      handleLogout(false);
+      showToast('No se pudo restaurar la sesión. Inicia sesión nuevamente.', 'error');
+    }
+  } finally {
+    updateNavigationForAuth();
+  }
+}
+
 function initialise() {
   ensureMeasurementRow();
   if (customerMeasurementsContainer && !customerMeasurementsContainer.children.length) {
@@ -2497,4 +2591,4 @@ function initialise() {
 }
 
 initialise();
-updateNavigationForAuth();
+restoreSessionFromStorage();
