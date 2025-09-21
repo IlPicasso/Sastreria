@@ -1,4 +1,5 @@
-from typing import List, Optional
+import math
+from typing import List, Optional, Tuple
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +11,27 @@ from .database import Base, engine, get_db
 from .dependencies import admin_required, staff_required, vendor_or_admin_required
 
 settings = get_settings()
+
+DEFAULT_PAGE_SIZE = 25
+MAX_PAGE_SIZE = 200
+
+
+def resolve_pagination(
+    *,
+    skip: Optional[int],
+    limit: Optional[int],
+    page: int,
+    page_size: int,
+    default_size: int = DEFAULT_PAGE_SIZE,
+) -> Tuple[int, int, int]:
+    effective_page_size = limit if limit is not None else page_size
+    if effective_page_size is None or effective_page_size <= 0:
+        effective_page_size = default_size
+    skip_value = skip if skip is not None else (page - 1) * effective_page_size
+    if skip_value < 0:
+        skip_value = 0
+    current_page = (skip_value // effective_page_size) + 1 if effective_page_size else 1
+    return skip_value, effective_page_size, current_page
 
 app = FastAPI(title=settings.app_name)
 
@@ -133,13 +155,45 @@ def search_public_orders(
     return crud.search_orders(db, order_number=order_number, customer_document=customer_document)
 
 
-@app.get("/customers", response_model=List[schemas.CustomerRead])
+@app.get("/customers", response_model=schemas.PaginatedCustomers)
 def list_customers(
+    skip: Optional[int] = Query(default=None, ge=0),
+    limit: Optional[int] = Query(default=None, ge=1, le=MAX_PAGE_SIZE),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
+    search: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(staff_required()),
 ):
     _ = current_user
-    return crud.get_customers(db)
+    trimmed_search = search.strip() if search else None
+    skip_value, limit_value, page_value = resolve_pagination(
+        skip=skip, limit=limit, page=page, page_size=page_size
+    )
+    customers, total = crud.get_customers(
+        db,
+        skip=skip_value,
+        limit=limit_value,
+        search=trimmed_search,
+    )
+    if total and skip_value >= total and page_value > 1:
+        max_page = max(math.ceil(total / limit_value), 1)
+        skip_value = (max_page - 1) * limit_value
+        customers, total = crud.get_customers(
+            db,
+            skip=skip_value,
+            limit=limit_value,
+            search=trimmed_search,
+        )
+        page_value = max_page
+    if total == 0:
+        page_value = 1
+    return {
+        "items": customers,
+        "total": total,
+        "page": page_value,
+        "page_size": limit_value,
+    }
 
 
 @app.post("/customers", response_model=schemas.CustomerRead, status_code=status.HTTP_201_CREATED)
@@ -228,13 +282,48 @@ def delete_customer_endpoint(
     return None
 
 
-@app.get("/orders", response_model=List[schemas.OrderRead])
+@app.get("/orders", response_model=schemas.PaginatedOrders)
 def list_orders(
+    skip: Optional[int] = Query(default=None, ge=0),
+    limit: Optional[int] = Query(default=None, ge=1, le=MAX_PAGE_SIZE),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
+    search: Optional[str] = Query(default=None),
+    customer_id: Optional[int] = Query(default=None, ge=1),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(staff_required()),
 ):
     _ = current_user
-    return crud.get_orders(db)
+    trimmed_search = search.strip() if search else None
+    skip_value, limit_value, page_value = resolve_pagination(
+        skip=skip, limit=limit, page=page, page_size=page_size
+    )
+    orders, total = crud.get_orders(
+        db,
+        skip=skip_value,
+        limit=limit_value,
+        search=trimmed_search,
+        customer_id=customer_id,
+    )
+    if total and skip_value >= total and page_value > 1:
+        max_page = max(math.ceil(total / limit_value), 1)
+        skip_value = (max_page - 1) * limit_value
+        orders, total = crud.get_orders(
+            db,
+            skip=skip_value,
+            limit=limit_value,
+            search=trimmed_search,
+            customer_id=customer_id,
+        )
+        page_value = max_page
+    if total == 0:
+        page_value = 1
+    return {
+        "items": orders,
+        "total": total,
+        "page": page_value,
+        "page_size": limit_value,
+    }
 
 
 @app.post("/orders", response_model=schemas.OrderRead, status_code=status.HTTP_201_CREATED)
