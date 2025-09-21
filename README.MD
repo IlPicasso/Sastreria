@@ -22,6 +22,20 @@ source .venv/bin/activate  # En Windows: .venv\\Scripts\\activate
 pip install -r requirements.txt
 ```
 
+Define la clave secreta JWT en un archivo `.env` dentro de la carpeta `backend` (o como
+variable de entorno) antes de iniciar la API:
+
+```bash
+cat <<'EOF' > .env
+SECRET_KEY="pon-aqui-una-clave-de-al-menos-32-caracteres"
+EOF
+# También puedes exportarla directamente:
+export SECRET_KEY="pon-aqui-una-clave-de-al-menos-32-caracteres"
+```
+
+La aplicación fallará con un mensaje descriptivo si `SECRET_KEY` no está definida o es
+demasiado corta.
+
 Crear el primer usuario administrador:
 
 ```bash
