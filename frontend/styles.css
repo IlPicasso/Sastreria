@@ -472,17 +472,7 @@ button[disabled] {
   color: var(--primary-dark);
 }
 
-=======
 
-.customer-order-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.customer-order-tags .tag {
-  margin: 0;
-}
 .tag.muted-tag {
   background: rgba(148, 163, 184, 0.18);
   color: var(--muted);
@@ -511,7 +501,6 @@ button[disabled] {
     width: 100%;
   }
 
-
   .table-pagination {
     width: 100%;
     align-items: flex-start;
@@ -539,6 +528,7 @@ button[disabled] {
     text-align: center;
   }
 }
+
 
   .table-pagination {
     width: 100%;

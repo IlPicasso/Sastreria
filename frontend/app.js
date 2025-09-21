@@ -1081,6 +1081,46 @@ function sortOrdersByRecency(orders) {
   });
 }
 
+function getLatestOrderForCustomer(ordersForCustomer = []) {
+  if (!Array.isArray(ordersForCustomer) || ordersForCustomer.length === 0) {
+    return null;
+  }
+  if (ordersForCustomer.length === 1) {
+    return ordersForCustomer[0];
+  }
+  const [mostRecent] = sortOrdersByRecency(ordersForCustomer);
+  return mostRecent ?? null;
+}
+
+function getCustomerDisplayData(customer, ordersForCustomer = []) {
+  const normalizedName =
+    typeof customer?.full_name === 'string' ? customer.full_name.trim() : '';
+  const normalizedDocument =
+    typeof customer?.document_id === 'string' ? customer.document_id.trim() : '';
+  const normalizedContact =
+    typeof customer?.phone === 'string' ? customer.phone.trim() : '';
+
+  const latestOrder = getLatestOrderForCustomer(ordersForCustomer);
+
+  const fallbackName =
+    typeof latestOrder?.customer_name === 'string' ? latestOrder.customer_name.trim() : '';
+  const fallbackDocument =
+    typeof latestOrder?.customer_document === 'string'
+      ? latestOrder.customer_document.trim()
+      : '';
+  const fallbackContact =
+    typeof latestOrder?.customer_contact === 'string'
+      ? latestOrder.customer_contact.trim()
+      : '';
+
+  return {
+    name: normalizedName || fallbackName,
+    document: normalizedDocument || fallbackDocument,
+    contact: normalizedContact || fallbackContact,
+  };
+}
+
+
 function renderCustomerOrderHistory(customer) {
   if (!customerOrderHistoryContainer) return;
   if (!customer) {
@@ -1265,7 +1305,6 @@ function renderCustomers() {
 
   let detailRendered = false;
 
-
   paginatedCustomers.forEach((customer) => {
     const row = document.createElement('tr');
     row.classList.add('customer-row');
@@ -1278,16 +1317,18 @@ function renderCustomers() {
 
     const ordersForCustomer = getOrdersForCustomer(customer.id);
     const orderCount = ordersForCustomer.length;
+    const displayData = getCustomerDisplayData(customer, ordersForCustomer);
 
 
     const nameCell = document.createElement('td');
-    nameCell.textContent = customer.full_name;
+    nameCell.textContent = displayData.name || '—';
 
     const documentCell = document.createElement('td');
-    documentCell.textContent = customer.document_id;
+    documentCell.textContent = displayData.document || '—';
 
     const phoneCell = document.createElement('td');
-    phoneCell.textContent = customer.phone || '—';
+    phoneCell.textContent = displayData.contact || '—';
+
 
     const orderCountCell = document.createElement('td');
     orderCountCell.className = 'customer-order-count-cell';
@@ -1361,19 +1402,21 @@ function populateCustomerDetail(customer) {
   state.selectedCustomerId = customer.id;
   customerDetail.classList.remove('hidden');
 
-  if (customerDetailTitle) {
-    customerDetailTitle.textContent = customer.full_name || CUSTOMER_DETAIL_DEFAULT_TITLE;
-  }
-
   const ordersForCustomer = getOrdersForCustomer(customer.id);
+  const displayData = getCustomerDisplayData(customer, ordersForCustomer);
+
+  if (customerDetailTitle) {
+    customerDetailTitle.textContent = displayData.name || CUSTOMER_DETAIL_DEFAULT_TITLE;
+  }
 
   if (customerDetailSummaryElement) {
     const summaryParts = [];
-    if (customer.document_id) {
-      summaryParts.push(`Documento: ${customer.document_id}`);
+    if (displayData.document) {
+      summaryParts.push(`Documento: ${displayData.document}`);
     }
-    if (customer.phone) {
-      summaryParts.push(`Teléfono: ${customer.phone}`);
+    if (displayData.contact) {
+      summaryParts.push(`Teléfono: ${displayData.contact}`);
+
     }
     if (ordersForCustomer.length) {
       const label =
@@ -1412,7 +1455,6 @@ function populateCustomerDetail(customer) {
     );
     detailRow?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
-
 }
 
 function clearCustomerDetail(options = {}) {
@@ -1434,17 +1476,7 @@ function clearCustomerDetail(options = {}) {
     updateCustomerMeasurementsContainer.innerHTML = '';
   }
 
-
-  if (!reRender && customersTableBody) {
-    customersTableBody.querySelectorAll('.customer-row').forEach((row) => {
-      row.classList.remove('is-selected');
-      const toggleButton = row.querySelector('button[data-action="toggle-customer-detail"]');
-      if (toggleButton) {
-        toggleButton.textContent = 'Ver detalle';
-        toggleButton.setAttribute('aria-expanded', 'false');
-      }
-    });
-  }
+  removeCustomerDetailRow();
 
   if (reRender) {
     renderCustomers();
