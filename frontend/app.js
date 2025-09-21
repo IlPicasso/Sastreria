@@ -3,6 +3,7 @@ const DEFAULT_PAGE_SIZE = 10;
 const PAGE_SIZE_OPTIONS = [10, 15, 20, 25, 30, 35, 40, 45, 50];
 const ESTABLISHMENTS = ['Urdesa', 'Batan', 'Indie'];
 
+
 const state = {
   statuses: [],
   token: null,
@@ -1119,6 +1120,7 @@ function getCustomerDisplayData(customer, ordersForCustomer = []) {
   };
 }
 
+
 function renderCustomerOrderHistory(customer) {
   if (!customerOrderHistoryContainer) return;
   if (!customer) {
@@ -1168,6 +1170,7 @@ function renderCustomerOrderHistory(customer) {
     if (order.origin_branch) {
       parts.push(`Establecimiento: ${order.origin_branch}`);
     }
+
     const deliveryLabel = formatDeliveryDateDisplay(order);
     if (deliveryLabel) {
       parts.push(`Entrega: ${deliveryLabel}`);
@@ -1179,6 +1182,7 @@ function renderCustomerOrderHistory(customer) {
 
     item.appendChild(header);
     item.appendChild(invoice);
+
     item.appendChild(meta);
     list.appendChild(item);
   });
@@ -1211,6 +1215,7 @@ function renderCustomers() {
     const row = document.createElement('tr');
     const cell = document.createElement('td');
     cell.colSpan = CUSTOMER_TABLE_COLUMN_COUNT;
+
     cell.textContent = 'No hay clientes registrados aún.';
     cell.className = 'muted';
     row.appendChild(cell);
@@ -1250,6 +1255,7 @@ function renderCustomers() {
     const row = document.createElement('tr');
     const cell = document.createElement('td');
     cell.colSpan = CUSTOMER_TABLE_COLUMN_COUNT;
+
     cell.textContent = 'No se encontraron clientes que coincidan con la búsqueda.';
     cell.className = 'muted';
     row.appendChild(cell);
@@ -1313,6 +1319,7 @@ function renderCustomers() {
     const orderCount = ordersForCustomer.length;
     const displayData = getCustomerDisplayData(customer, ordersForCustomer);
 
+
     const nameCell = document.createElement('td');
     nameCell.textContent = displayData.name || '—';
 
@@ -1321,6 +1328,7 @@ function renderCustomers() {
 
     const phoneCell = document.createElement('td');
     phoneCell.textContent = displayData.contact || '—';
+
 
     const orderCountCell = document.createElement('td');
     orderCountCell.className = 'customer-order-count-cell';
@@ -1408,6 +1416,7 @@ function populateCustomerDetail(customer) {
     }
     if (displayData.contact) {
       summaryParts.push(`Teléfono: ${displayData.contact}`);
+
     }
     if (ordersForCustomer.length) {
       const label =
