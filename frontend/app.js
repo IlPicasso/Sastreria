@@ -511,21 +511,53 @@ function populateCustomerSelect(selectElement, selectedId = '') {
     selectElement.appendChild(option);
   });
 }
-function addMeasurementRow(data = { nombre: '', valor: '' }) {
+
+let measurementRowIdCounter = 0;
+
+function createMeasurementRowElement(data = { nombre: '', valor: '' }, onRemove) {
   const row = document.createElement('div');
   row.className = 'measurement-row';
 
+  measurementRowIdCounter += 1;
+  const rowId = `measurement-${measurementRowIdCounter}`;
+  const nameId = `${rowId}-name`;
+  const valueId = `${rowId}-value`;
+
+  const nameField = document.createElement('div');
+  nameField.className = 'measurement-field';
+
+  const nameLabel = document.createElement('label');
+  nameLabel.className = 'sr-only';
+  nameLabel.setAttribute('for', nameId);
+  nameLabel.textContent = 'Nombre de la medida';
+
   const nameInput = document.createElement('input');
   nameInput.type = 'text';
+  nameInput.id = nameId;
   nameInput.placeholder = 'Ej. Pecho';
   nameInput.value = data.nombre || '';
   nameInput.dataset.field = 'nombre';
 
+  nameField.appendChild(nameLabel);
+  nameField.appendChild(nameInput);
+
+  const valueField = document.createElement('div');
+  valueField.className = 'measurement-field';
+
+  const valueLabel = document.createElement('label');
+  valueLabel.className = 'sr-only';
+  valueLabel.setAttribute('for', valueId);
+  valueLabel.textContent = 'Valor de la medida';
+
   const valueInput = document.createElement('input');
   valueInput.type = 'text';
+  valueInput.id = valueId;
   valueInput.placeholder = 'Ej. 98 cm';
   valueInput.value = data.valor || '';
   valueInput.dataset.field = 'valor';
+
+  valueField.appendChild(valueLabel);
+  valueField.appendChild(valueInput);
 
   const removeButton = document.createElement('button');
   removeButton.type = 'button';
@@ -533,12 +565,21 @@ function addMeasurementRow(data = { nombre: '', valor: '' }) {
   removeButton.textContent = 'Eliminar';
   removeButton.addEventListener('click', () => {
     row.remove();
-    ensureMeasurementRow();
+    if (typeof onRemove === 'function') {
+      onRemove();
+    }
   });
 
-  row.appendChild(nameInput);
-  row.appendChild(valueInput);
+  row.appendChild(nameField);
+  row.appendChild(valueField);
   row.appendChild(removeButton);
+
+  return row;
+}
+
+function addMeasurementRow(data = { nombre: '', valor: '' }) {
+  if (!measurementsList) return;
+  const row = createMeasurementRowElement(data, () => ensureMeasurementRow());
   measurementsList.appendChild(row);
 }
 
@@ -553,35 +594,12 @@ if (addMeasurementButton) {
 }
 
 function addMeasurementRowToList(listElement, data = { nombre: '', valor: '' }) {
-  const row = document.createElement('div');
-  row.className = 'measurement-row';
-
-  const nameInput = document.createElement('input');
-  nameInput.type = 'text';
-  nameInput.placeholder = 'Ej. Pecho';
-  nameInput.value = data.nombre || '';
-  nameInput.dataset.field = 'nombre';
-
-  const valueInput = document.createElement('input');
-  valueInput.type = 'text';
-  valueInput.placeholder = 'Ej. 98 cm';
-  valueInput.value = data.valor || '';
-  valueInput.dataset.field = 'valor';
-
-  const removeButton = document.createElement('button');
-  removeButton.type = 'button';
-  removeButton.className = 'danger ghost';
-  removeButton.textContent = 'Eliminar';
-  removeButton.addEventListener('click', () => {
-    row.remove();
+  if (!listElement) return;
+  const row = createMeasurementRowElement(data, () => {
     if (listElement.children.length === 0) {
       addMeasurementRowToList(listElement);
     }
   });
-
-  row.appendChild(nameInput);
-  row.appendChild(valueInput);
-  row.appendChild(removeButton);
   listElement.appendChild(row);
 }
 
