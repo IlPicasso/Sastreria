@@ -1010,3 +1010,106 @@ th {
     padding: 0.6rem;
   }
 }
+
+@media (max-width: 640px) {
+  .table-wrapper {
+    overflow-x: visible;
+  }
+
+  .table-wrapper table {
+    border: 0;
+  }
+
+  .table-wrapper thead {
+    display: none;
+  }
+
+  .table-wrapper tbody {
+    display: block;
+  }
+
+  .table-wrapper tbody tr {
+    display: block;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    box-shadow: 0 18px 32px rgba(15, 76, 92, 0.08);
+    overflow: hidden;
+  }
+
+  .table-wrapper tbody tr:last-of-type {
+    margin-bottom: 0;
+  }
+
+  .table-wrapper tbody tr td {
+    display: block;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .table-wrapper tbody tr td:last-child {
+    border-bottom: none;
+  }
+
+  .table-wrapper tbody tr td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 0.35rem;
+    font-size: 0.8rem;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+  }
+
+  .table-wrapper tbody tr td[data-label='Acciones'] button {
+    width: 100%;
+  }
+
+  .customer-order-count-cell {
+    text-align: left;
+  }
+
+  .order-row.is-selected,
+  .customer-row.is-selected {
+    border-color: var(--primary);
+    box-shadow: 0 20px 36px rgba(15, 76, 92, 0.12);
+    margin-bottom: 0;
+  }
+
+  .order-detail-row,
+  .customer-detail-row {
+    display: block;
+    margin-top: -0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .order-detail-row td,
+  .customer-detail-row td {
+    display: block;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+    background: #f9fbfc;
+    box-shadow: 0 20px 36px rgba(15, 76, 92, 0.12);
+  }
+
+  .order-detail,
+  .customer-detail {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 1.5rem 1.25rem;
+    box-shadow: none;
+    margin: 0;
+  }
+
+  .order-detail .button-row,
+  .customer-detail .button-row {
+    flex-direction: column;
+  }
+}
