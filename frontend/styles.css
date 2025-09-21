@@ -322,10 +322,13 @@ button[disabled] {
 .customer-panel-header {
   display: flex;
   flex-wrap: wrap;
-  justify-content: space-between;
   align-items: flex-start;
   gap: 1.5rem;
   margin-bottom: 1.5rem;
+}
+
+.customer-panel-header > :first-child {
+  flex: 1 1 0;
 }
 
 .customer-panel-header h3 {
@@ -342,6 +345,7 @@ button[disabled] {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
+  justify-content: flex-end;
   gap: 1rem;
 }
 
@@ -491,9 +495,14 @@ button[disabled] {
 }
 
 @media (max-width: 600px) {
+  .customer-panel-header > :first-child {
+    flex-basis: 100%;
+  }
+
   .customer-panel-actions {
     width: 100%;
     align-items: stretch;
+    justify-content: flex-start;
   }
 
   .customer-panel-actions > button {
