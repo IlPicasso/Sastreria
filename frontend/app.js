@@ -2450,17 +2450,22 @@ function renderAuditLogs() {
 
     const dateCell = document.createElement('td');
     dateCell.textContent = formatDate(entry.timestamp);
+    dateCell.dataset.label = 'Fecha';
 
     const actorCell = document.createElement('td');
     actorCell.textContent = entry.actor ? entry.actor.full_name : 'Sistema';
+    actorCell.dataset.label = 'Usuario';
 
     const actionCell = document.createElement('td');
     actionCell.textContent = entry.action;
+    actionCell.dataset.label = 'Acción';
 
     const entityCell = document.createElement('td');
     entityCell.textContent = entry.entity_id ? `${entry.entity_type} (#${entry.entity_id})` : entry.entity_type;
+    entityCell.dataset.label = 'Entidad';
 
     const beforeCell = document.createElement('td');
+    beforeCell.dataset.label = 'Antes';
     if (entry.before && Object.keys(entry.before).length) {
       const pre = document.createElement('pre');
       pre.textContent = JSON.stringify(entry.before, null, 2);
@@ -2470,6 +2475,7 @@ function renderAuditLogs() {
     }
 
     const afterCell = document.createElement('td');
+    afterCell.dataset.label = 'Después';
     if (entry.after && Object.keys(entry.after).length) {
       const pre = document.createElement('pre');
       pre.textContent = JSON.stringify(entry.after, null, 2);
