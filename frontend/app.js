@@ -1338,17 +1338,6 @@ function sortOrdersByRecency(orders) {
   });
 }
 
-function getLatestOrderForCustomer(ordersForCustomer = []) {
-  if (!Array.isArray(ordersForCustomer) || ordersForCustomer.length === 0) {
-    return null;
-  }
-  if (ordersForCustomer.length === 1) {
-    return ordersForCustomer[0];
-  }
-  const [mostRecent] = sortOrdersByRecency(ordersForCustomer);
-  return mostRecent ?? null;
-}
-
 function getCustomerDisplayData(customer, ordersForCustomer = []) {
   const normalizedName =
     typeof customer?.full_name === 'string' ? customer.full_name.trim() : '';
@@ -1357,18 +1346,37 @@ function getCustomerDisplayData(customer, ordersForCustomer = []) {
   const normalizedContact =
     typeof customer?.phone === 'string' ? customer.phone.trim() : '';
 
-  const latestOrder = getLatestOrderForCustomer(ordersForCustomer);
+  let fallbackName = '';
+  let fallbackDocument = '';
+  let fallbackContact = '';
 
-  const fallbackName =
-    typeof latestOrder?.customer_name === 'string' ? latestOrder.customer_name.trim() : '';
-  const fallbackDocument =
-    typeof latestOrder?.customer_document === 'string'
-      ? latestOrder.customer_document.trim()
-      : '';
-  const fallbackContact =
-    typeof latestOrder?.customer_contact === 'string'
-      ? latestOrder.customer_contact.trim()
-      : '';
+  if (!normalizedName || !normalizedDocument || !normalizedContact) {
+    const orderList = Array.isArray(ordersForCustomer) ? ordersForCustomer : [];
+    const ordersByRecency = sortOrdersByRecency(orderList);
+    for (const order of ordersByRecency) {
+      if (!fallbackName && typeof order?.customer_name === 'string') {
+        const trimmed = order.customer_name.trim();
+        if (trimmed) {
+          fallbackName = trimmed;
+        }
+      }
+      if (!fallbackDocument && typeof order?.customer_document === 'string') {
+        const trimmed = order.customer_document.trim();
+        if (trimmed) {
+          fallbackDocument = trimmed;
+        }
+      }
+      if (!fallbackContact && typeof order?.customer_contact === 'string') {
+        const trimmed = order.customer_contact.trim();
+        if (trimmed) {
+          fallbackContact = trimmed;
+        }
+      }
+      if (fallbackName && fallbackDocument && fallbackContact) {
+        break;
+      }
+    }
+  }
 
   return {
     name: normalizedName || fallbackName,
@@ -1662,9 +1670,21 @@ async function populateCustomerDetail(customer) {
   const nameInput = document.getElementById('updateCustomerName');
   const documentInput = document.getElementById('updateCustomerDocument');
   const phoneInput = document.getElementById('updateCustomerPhone');
-  if (nameInput) nameInput.value = customer.full_name;
-  if (documentInput) documentInput.value = customer.document_id;
-  if (phoneInput) phoneInput.value = customer.phone || '';
+  const normalizedCustomerName =
+    typeof customer?.full_name === 'string' ? customer.full_name.trim() : '';
+  const normalizedCustomerDocument =
+    typeof customer?.document_id === 'string' ? customer.document_id.trim() : '';
+  const normalizedCustomerPhone =
+    typeof customer?.phone === 'string' ? customer.phone.trim() : '';
+  if (nameInput) {
+    nameInput.value = normalizedCustomerName || displayData.name || '';
+  }
+  if (documentInput) {
+    documentInput.value = normalizedCustomerDocument || displayData.document || '';
+  }
+  if (phoneInput) {
+    phoneInput.value = normalizedCustomerPhone || displayData.contact || '';
+  }
 
   if (updateCustomerMeasurementsContainer) {
     updateCustomerMeasurementsContainer.innerHTML = '';
