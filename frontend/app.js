@@ -1662,9 +1662,21 @@ async function populateCustomerDetail(customer) {
   const nameInput = document.getElementById('updateCustomerName');
   const documentInput = document.getElementById('updateCustomerDocument');
   const phoneInput = document.getElementById('updateCustomerPhone');
-  if (nameInput) nameInput.value = customer.full_name;
-  if (documentInput) documentInput.value = customer.document_id;
-  if (phoneInput) phoneInput.value = customer.phone || '';
+  const normalizedCustomerName =
+    typeof customer?.full_name === 'string' ? customer.full_name.trim() : '';
+  const normalizedCustomerDocument =
+    typeof customer?.document_id === 'string' ? customer.document_id.trim() : '';
+  const normalizedCustomerPhone =
+    typeof customer?.phone === 'string' ? customer.phone.trim() : '';
+  if (nameInput) {
+    nameInput.value = normalizedCustomerName || displayData.name || '';
+  }
+  if (documentInput) {
+    documentInput.value = normalizedCustomerDocument || displayData.document || '';
+  }
+  if (phoneInput) {
+    phoneInput.value = normalizedCustomerPhone || displayData.contact || '';
+  }
 
   if (updateCustomerMeasurementsContainer) {
     updateCustomerMeasurementsContainer.innerHTML = '';
