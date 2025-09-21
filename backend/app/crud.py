@@ -1,5 +1,6 @@
-from typing import Iterable, List, Optional, Dict, Any
+from typing import Iterable, List, Optional, Dict, Any, Tuple
 
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from . import auth, models, schemas
@@ -158,30 +159,75 @@ def _measurement_collections_to_models(
 
 
 def get_customer(db: Session, customer_id: int) -> Optional[models.Customer]:
-    return (
+    customer = (
         db.query(models.Customer)
         .options(joinedload(models.Customer.measurements))
         .filter(models.Customer.id == customer_id)
         .first()
     )
+    if customer:
+        order_count = (
+            db.query(func.count(models.Order.id))
+            .filter(models.Order.customer_id == customer.id)
+            .scalar()
+        )
+        setattr(customer, "order_count", int(order_count or 0))
+    return customer
 
 
 def get_customer_by_document(db: Session, document_id: str) -> Optional[models.Customer]:
-    return (
+    customer = (
         db.query(models.Customer)
         .options(joinedload(models.Customer.measurements))
         .filter(models.Customer.document_id == document_id)
         .first()
     )
+    if customer:
+        order_count = (
+            db.query(func.count(models.Order.id))
+            .filter(models.Order.customer_id == customer.id)
+            .scalar()
+        )
+        setattr(customer, "order_count", int(order_count or 0))
+    return customer
 
 
-def get_customers(db: Session) -> List[models.Customer]:
-    return (
-        db.query(models.Customer)
-        .options(joinedload(models.Customer.measurements))
+def get_customers(
+    db: Session,
+    *,
+    skip: int = 0,
+    limit: Optional[int] = None,
+    search: Optional[str] = None,
+) -> Tuple[List[models.Customer], int]:
+    query = db.query(models.Customer)
+    if search:
+        pattern = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                models.Customer.full_name.ilike(pattern),
+                models.Customer.document_id.ilike(pattern),
+            )
+        )
+    total = query.count()
+    items_query = (
+        query.options(joinedload(models.Customer.measurements))
         .order_by(models.Customer.full_name.asc())
-        .all()
+        .offset(skip)
     )
+    if limit is not None:
+        items_query = items_query.limit(limit)
+    customers = items_query.all()
+    if customers:
+        counts = (
+            db.query(models.Order.customer_id, func.count(models.Order.id))
+            .filter(models.Order.customer_id.in_([customer.id for customer in customers]))
+            .group_by(models.Order.customer_id)
+            .all()
+        )
+        counts_map = {customer_id: count for customer_id, count in counts}
+        for customer in customers:
+            setattr(customer, "order_count", counts_map.get(customer.id, 0))
+    return customers, total
 
 
 def create_customer(db: Session, customer_in: schemas.CustomerCreate) -> models.Customer:
@@ -275,16 +321,38 @@ def get_order_by_number(db: Session, order_number: str) -> Optional[models.Order
     )
 
 
-def get_orders(db: Session) -> List[models.Order]:
-    return (
-        db.query(models.Order)
-        .options(
+def get_orders(
+    db: Session,
+    *,
+    skip: int = 0,
+    limit: Optional[int] = None,
+    search: Optional[str] = None,
+    customer_id: Optional[int] = None,
+) -> Tuple[List[models.Order], int]:
+    query = db.query(models.Order)
+    if customer_id is not None:
+        query = query.filter(models.Order.customer_id == customer_id)
+    if search:
+        pattern = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                models.Order.order_number.ilike(pattern),
+                models.Order.customer_document.ilike(pattern),
+            )
+        )
+    total = query.count()
+    items_query = (
+        query.options(
             joinedload(models.Order.assigned_tailor),
             joinedload(models.Order.customer).joinedload(models.Customer.measurements),
         )
         .order_by(models.Order.created_at.desc())
-        .all()
+        .offset(skip)
     )
+    if limit is not None:
+        items_query = items_query.limit(limit)
+    orders = items_query.all()
+    return orders, total
 
 
 def search_orders(

@@ -59,6 +59,7 @@ class CustomerUpdate(BaseModel):
 
 class CustomerSummary(CustomerBase):
     id: int
+    order_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -147,6 +148,20 @@ class OrderRead(OrderPublic):
     customer: Optional[CustomerSummary]
     assigned_tailor: Optional[UserOut]
     created_at: datetime
+
+
+class PaginatedCustomers(BaseModel):
+    items: List[CustomerRead] = Field(default_factory=list)
+    total: int
+    page: int
+    page_size: int
+
+
+class PaginatedOrders(BaseModel):
+    items: List[OrderRead] = Field(default_factory=list)
+    total: int
+    page: int
+    page_size: int
 
 
 class LoginRequest(BaseModel):
