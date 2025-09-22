@@ -1352,7 +1352,7 @@ function getCustomerDisplayData(customer, ordersForCustomer = []) {
     customer?.id !== null && customer?.id !== undefined ? String(customer.id) : null;
   const cachedDisplay =
     cacheKey && state.customerDisplayCache ? state.customerDisplayCache[cacheKey] || {} : {};
-
+  
   let fallbackName = '';
   let fallbackDocument = '';
   let fallbackContact = '';
@@ -1399,6 +1399,7 @@ function getCustomerDisplayData(customer, ordersForCustomer = []) {
       contact,
     };
   }
+
 
   return {
     name,
