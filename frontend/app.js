@@ -1352,7 +1352,7 @@ function getCustomerDisplayData(customer, ordersForCustomer = []) {
     customer?.id !== null && customer?.id !== undefined ? String(customer.id) : null;
   const cachedDisplay =
     cacheKey && state.customerDisplayCache ? state.customerDisplayCache[cacheKey] || {} : {};
-  
+
   let fallbackName = '';
   let fallbackDocument = '';
   let fallbackContact = '';
@@ -1399,7 +1399,6 @@ function getCustomerDisplayData(customer, ordersForCustomer = []) {
       contact,
     };
   }
-
 
   return {
     name,
@@ -1652,10 +1651,13 @@ async function populateCustomerDetail(customer) {
   const expectedOrderCount =
     typeof customer.order_count === 'number' ? customer.order_count : undefined;
   const cached = state.customerOrdersCache[cacheKey];
-  const cachedItems = cached?.items ?? [];
+  const cachedItems = Array.isArray(cached?.items) ? cached.items : [];
+  const cacheComplete = cached?.complete === true;
+  const hasCache = Boolean(cached);
   const needsFetch =
-    expectedOrderCount !== undefined &&
-    (cached?.complete !== true || cachedItems.length < expectedOrderCount);
+    expectedOrderCount !== undefined
+      ? !cacheComplete || cachedItems.length < expectedOrderCount
+      : !hasCache || !cacheComplete;
 
   if (needsFetch) {
     showCustomerOrderHistoryLoading();
