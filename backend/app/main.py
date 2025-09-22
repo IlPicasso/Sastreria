@@ -458,3 +458,14 @@ def list_audit_logs_endpoint(
 ):
     _ = current_user
     return crud.list_audit_logs(db, limit=limit)
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        "app.main:app",
+        host=settings.api_host,
+        port=settings.api_port,
+        reload=settings.api_reload,
+    )

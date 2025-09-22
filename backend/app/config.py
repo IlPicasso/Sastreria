@@ -24,6 +24,20 @@ class Settings(BaseSettings):
         default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"],
         description="Origins allowed to make CORS requests.",
     )
+    api_host: str = Field(
+        "127.0.0.1",
+        description="Host interface where the API should listen.",
+    )
+    api_port: int = Field(
+        8000,
+        ge=0,
+        le=65535,
+        description="Port number where the API should listen.",
+    )
+    api_reload: bool = Field(
+        False,
+        description="Enable auto reload when running the development server via python -m app.main.",
+    )
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
