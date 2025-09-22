@@ -62,6 +62,18 @@ def serialize_order(order: Optional[models.Order]) -> Optional[Dict[str, Any]]:
     }
 
 
+def serialize_order_task(task: Optional[models.OrderTask]) -> Optional[Dict[str, Any]]:
+    if task is None:
+        return None
+    return {
+        "id": task.id,
+        "order_id": task.order_id,
+        "description": task.description,
+        "status": task.status.value if task.status else None,
+        "responsible_id": task.responsible_id,
+    }
+
+
 # Audit log operations ------------------------------------------------------
 
 def create_audit_log(
@@ -383,3 +395,60 @@ def update_order(db: Session, db_order: models.Order, order_update: schemas.Orde
 def delete_order(db: Session, db_order: models.Order) -> None:
     db.delete(db_order)
     db.commit()
+
+
+# Order task operations -----------------------------------------------------
+
+
+def list_order_tasks(db: Session, *, order_id: int) -> List[models.OrderTask]:
+    return (
+        db.query(models.OrderTask)
+        .options(joinedload(models.OrderTask.responsible))
+        .filter(models.OrderTask.order_id == order_id)
+        .order_by(models.OrderTask.created_at.asc())
+        .all()
+    )
+
+
+def create_order_task(
+    db: Session, *, order_id: int, task_in: schemas.OrderTaskCreate
+) -> models.OrderTask:
+    db_task = models.OrderTask(
+        order_id=order_id,
+        description=task_in.description,
+        status=task_in.status,
+        responsible_id=task_in.responsible_id,
+    )
+    db.add(db_task)
+    db.commit()
+    db.refresh(db_task)
+    return db_task
+
+
+def get_order_task(
+    db: Session, *, order_id: int, task_id: int
+) -> Optional[models.OrderTask]:
+    return (
+        db.query(models.OrderTask)
+        .options(joinedload(models.OrderTask.responsible))
+        .filter(
+            models.OrderTask.id == task_id,
+            models.OrderTask.order_id == order_id,
+        )
+        .first()
+    )
+
+
+def update_order_task(
+    db: Session, db_task: models.OrderTask, task_update: schemas.OrderTaskUpdate
+) -> models.OrderTask:
+    data = task_update.model_dump(exclude_unset=True)
+    if "description" in data:
+        db_task.description = data["description"]
+    if "status" in data:
+        db_task.status = data["status"]
+    if "responsible_id" in data:
+        db_task.responsible_id = data["responsible_id"]
+    db.commit()
+    db.refresh(db_task)
+    return db_task

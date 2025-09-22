@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
-from .models import Establishment, OrderStatus, UserRole
+from .models import Establishment, OrderStatus, OrderTaskStatus, UserRole
 
 
 class Token(BaseModel):
@@ -148,6 +148,33 @@ class OrderRead(OrderPublic):
     customer: Optional[CustomerSummary]
     assigned_tailor: Optional[UserOut]
     created_at: datetime
+
+
+class OrderTaskBase(BaseModel):
+    description: str = Field(..., min_length=1, max_length=255)
+
+
+class OrderTaskCreate(OrderTaskBase):
+    status: OrderTaskStatus = OrderTaskStatus.PENDING
+    responsible_id: Optional[int] = None
+
+
+class OrderTaskUpdate(BaseModel):
+    description: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    status: Optional[OrderTaskStatus] = None
+    responsible_id: Optional[int] = None
+
+
+class OrderTaskRead(OrderTaskBase):
+    id: int
+    order_id: int
+    status: OrderTaskStatus
+    responsible_id: Optional[int] = None
+    responsible: Optional[UserOut] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PaginatedCustomers(BaseModel):

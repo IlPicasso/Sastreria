@@ -21,3 +21,7 @@ def staff_required():
 
 def vendor_or_admin_required():
     return auth.require_roles(models.UserRole.ADMIN, models.UserRole.VENDEDOR)
+
+
+def tailor_or_admin_required():
+    return auth.require_roles(models.UserRole.ADMIN, models.UserRole.SASTRE)

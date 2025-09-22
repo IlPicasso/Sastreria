@@ -1,5 +1,8 @@
+import os
 import sys
 from pathlib import Path
+
+os.environ.setdefault("SECRET_KEY", "test-secret-key-value-32-chars!!")
 
 import pytest
 from fastapi import HTTPException

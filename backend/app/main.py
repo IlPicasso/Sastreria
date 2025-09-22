@@ -8,7 +8,12 @@ from sqlalchemy.orm import Session
 from . import auth, crud, models, schemas
 from .config import get_settings
 from .database import Base, engine, get_db
-from .dependencies import admin_required, staff_required, vendor_or_admin_required
+from .dependencies import (
+    admin_required,
+    staff_required,
+    tailor_or_admin_required,
+    vendor_or_admin_required,
+)
 
 settings = get_settings()
 
@@ -68,6 +73,13 @@ def _validate_assigned_tailor(
             detail="El usuario asignado no es un sastre",
         )
     return tailor
+
+
+def _get_order_or_404(db: Session, order_id: int) -> models.Order:
+    order = crud.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Orden no encontrada")
+    return order
 
 
 @app.get("/health")
@@ -426,6 +438,82 @@ def update_order_endpoint(
         after=crud.serialize_order(updated_order),
     )
     return updated_order
+
+
+@app.get("/orders/{order_id}/tasks", response_model=List[schemas.OrderTaskRead])
+def list_order_tasks_endpoint(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(staff_required()),
+):
+    _ = current_user
+    order = _get_order_or_404(db, order_id)
+    return crud.list_order_tasks(db, order_id=order.id)
+
+
+@app.post(
+    "/orders/{order_id}/tasks",
+    response_model=schemas.OrderTaskRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_order_task_endpoint(
+    order_id: int,
+    task_in: schemas.OrderTaskCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(tailor_or_admin_required()),
+):
+    order = _get_order_or_404(db, order_id)
+    task_data = task_in.model_dump()
+    responsible_id = task_data.get("responsible_id")
+    if responsible_id is not None:
+        _validate_assigned_tailor(db, responsible_id)
+    task = crud.create_order_task(
+        db,
+        order_id=order.id,
+        task_in=schemas.OrderTaskCreate(**task_data),
+    )
+    crud.create_audit_log(
+        db,
+        actor=current_user,
+        action="create",
+        entity_type="order_task",
+        entity_id=task.id,
+        after=crud.serialize_order_task(task),
+    )
+    return task
+
+
+@app.patch(
+    "/orders/{order_id}/tasks/{task_id}",
+    response_model=schemas.OrderTaskRead,
+)
+def update_order_task_endpoint(
+    order_id: int,
+    task_id: int,
+    task_update: schemas.OrderTaskUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(tailor_or_admin_required()),
+):
+    order = _get_order_or_404(db, order_id)
+    db_task = crud.get_order_task(db, order_id=order.id, task_id=task_id)
+    if not db_task:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tarea no encontrada")
+    update_fields = task_update.model_dump(exclude_unset=True)
+    if "responsible_id" in task_update.model_fields_set and update_fields.get("responsible_id") is not None:
+        _validate_assigned_tailor(db, update_fields["responsible_id"])
+    before_status = db_task.status
+    updated_task = crud.update_order_task(db, db_task, task_update)
+    if "status" in update_fields and before_status != updated_task.status:
+        crud.create_audit_log(
+            db,
+            actor=current_user,
+            action="update_status",
+            entity_type="order_task",
+            entity_id=updated_task.id,
+            before={"status": before_status.value},
+            after={"status": updated_task.status.value},
+        )
+    return updated_task
 
 
 @app.delete("/orders/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
