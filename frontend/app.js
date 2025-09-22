@@ -157,7 +157,6 @@ const orderDetailNotesTextarea = document.getElementById('orderDetailNotes');
 const orderDetailMeasurementsContainer = document.getElementById('orderDetailMeasurements');
 const orderTasksList = document.getElementById('orderTasksList');
 const orderTaskForm = document.getElementById('orderTaskForm');
-const orderTaskDescriptionInput = document.getElementById('orderTaskDescription');
 const orderTaskResponsibleSelect = document.getElementById('orderTaskResponsible');
 const orderTasksPermissionsNotice = document.getElementById('orderTasksPermissionsNotice');
 const closeOrderDetailButton = document.getElementById('closeOrderDetailButton');
@@ -485,9 +484,6 @@ function renderOrderTasks() {
   if (orderTaskForm) {
     orderTaskForm.classList.toggle('hidden', !shouldShowForm);
   }
-  if (orderTaskDescriptionInput) {
-    orderTaskDescriptionInput.disabled = !canModify;
-  }
   if (orderTaskResponsibleSelect) {
     orderTaskResponsibleSelect.disabled = !canModify;
   }
@@ -523,7 +519,7 @@ function renderOrderTasks() {
   const list = document.createElement('ul');
   list.className = 'order-task-list';
 
-  tasks.forEach((task) => {
+  tasks.forEach((task, index) => {
     const item = document.createElement('li');
     item.className = 'order-task-item';
 
@@ -539,7 +535,11 @@ function renderOrderTasks() {
 
     const description = document.createElement('span');
     description.className = 'order-task-description';
-    description.textContent = task.description || '';
+    const rawDescription = typeof task.description === 'string' ? task.description.trim() : '';
+    const fallbackLabel = `Trabajo #${index + 1}`;
+    const displayDescription = rawDescription || fallbackLabel;
+    description.textContent = displayDescription;
+    description.title = displayDescription;
     label.appendChild(description);
 
     item.appendChild(label);
@@ -663,18 +663,13 @@ async function handleOrderTaskCreate(event) {
     showToast('No tienes permisos para modificar el checklist.', 'error');
     return;
   }
-  const descriptionValue = orderTaskDescriptionInput?.value.trim() || '';
-  if (!descriptionValue) {
-    showToast('Ingresa la descripción de la tarea.', 'error');
-    return;
-  }
   const responsibleValue = orderTaskResponsibleSelect?.value || '';
   const submitButton = orderTaskForm?.querySelector('button[type="submit"]');
   if (submitButton) {
     submitButton.disabled = true;
   }
   try {
-    const body = { description: descriptionValue };
+    const body = {};
     if (responsibleValue) {
       body.responsible_id = Number(responsibleValue);
     }
@@ -683,12 +678,9 @@ async function handleOrderTaskCreate(event) {
       body,
     });
     applyOrderTaskUpdate(newTask);
-    if (orderTaskDescriptionInput) {
-      orderTaskDescriptionInput.value = '';
-      orderTaskDescriptionInput.focus();
-    }
     if (orderTaskResponsibleSelect) {
       orderTaskResponsibleSelect.value = '';
+      orderTaskResponsibleSelect.focus();
     }
     showToast('Tarea añadida al checklist.', 'success');
   } catch (error) {
@@ -999,32 +991,25 @@ if (addMeasurementButton) {
   addMeasurementButton.addEventListener('click', () => addMeasurementRow());
 }
 
-function createOrderTaskRowElement(data = { description: '', responsible_id: '' }) {
+function createOrderTaskRowElement(data = { responsible_id: '' }) {
   const row = document.createElement('div');
   row.className = 'measurement-row order-task-input-row';
+  row.dataset.role = 'order-task-row';
 
   newOrderTaskRowIdCounter += 1;
   const rowId = `new-order-task-${newOrderTaskRowIdCounter}`;
-  const descriptionId = `${rowId}-description`;
   const responsibleId = `${rowId}-responsible`;
 
-  const descriptionField = document.createElement('div');
-  descriptionField.className = 'measurement-field';
+  const labelField = document.createElement('div');
+  labelField.className = 'measurement-field order-task-label-field';
 
-  const descriptionLabel = document.createElement('label');
-  descriptionLabel.className = 'sr-only';
-  descriptionLabel.setAttribute('for', descriptionId);
-  descriptionLabel.textContent = 'Descripción del trabajo';
+  const labelElement = document.createElement('span');
+  labelElement.className = 'order-task-input-label';
+  labelElement.id = `${rowId}-label`;
+  labelElement.dataset.role = 'task-label';
+  labelElement.textContent = 'Trabajo #1';
 
-  const descriptionInput = document.createElement('input');
-  descriptionInput.type = 'text';
-  descriptionInput.id = descriptionId;
-  descriptionInput.placeholder = 'Ej. Ajustar bastilla';
-  descriptionInput.value = data.description || '';
-  descriptionInput.dataset.field = 'description';
-
-  descriptionField.appendChild(descriptionLabel);
-  descriptionField.appendChild(descriptionInput);
+  labelField.appendChild(labelElement);
 
   const responsibleField = document.createElement('div');
   responsibleField.className = 'measurement-field';
@@ -1053,26 +1038,32 @@ function createOrderTaskRowElement(data = { description: '', responsible_id: '' 
   removeButton.textContent = 'Eliminar';
   removeButton.addEventListener('click', () => {
     row.remove();
+    updateNewOrderTaskLabels();
     ensureNewOrderTaskRow();
   });
 
-  row.appendChild(descriptionField);
+  row.appendChild(labelField);
+
   row.appendChild(responsibleField);
   row.appendChild(removeButton);
 
   return row;
 }
 
-function addNewOrderTaskRow(data = { description: '', responsible_id: '' }) {
+function addNewOrderTaskRow(data = { responsible_id: '' }) {
   if (!newOrderTasksList) return;
   const row = createOrderTaskRowElement(data);
   newOrderTasksList.appendChild(row);
+  updateNewOrderTaskLabels();
+
 }
 
 function ensureNewOrderTaskRow() {
   if (newOrderTasksList && newOrderTasksList.children.length === 0) {
     addNewOrderTaskRow();
   }
+  updateNewOrderTaskLabels();
+
 }
 
 function populateNewOrderTaskResponsibles() {
@@ -1081,35 +1072,39 @@ function populateNewOrderTaskResponsibles() {
     const currentValue = select.value || '';
     populateTailorSelect(select, currentValue);
   });
+  updateNewOrderTaskLabels();
 }
 
 function collectNewOrderTasks() {
   if (!newOrderTasksList) {
-    return { tasks: [], hasEmptyDescription: false, firstEmptyInput: null };
+    return [];
   }
   const rows = Array.from(newOrderTasksList.children);
   const tasks = [];
-  let hasEmptyDescription = false;
-  let firstEmptyInput = null;
 
   rows.forEach((row) => {
-    const descriptionInput = row.querySelector('input[data-field="description"]');
     const responsibleSelect = row.querySelector('select[data-field="responsible"]');
-    if (!descriptionInput) return;
-    const description = descriptionInput.value.trim();
-    if (!description) {
-      if (!firstEmptyInput) {
-        firstEmptyInput = descriptionInput;
-      }
-      hasEmptyDescription = true;
+    if (!responsibleSelect) return;
+    const responsibleValue = responsibleSelect.value || '';
+    if (!responsibleValue) {
       return;
     }
-    const responsibleValue = responsibleSelect?.value ?? '';
-    const responsibleId = responsibleValue ? Number(responsibleValue) : null;
-    tasks.push({ description, responsible_id: responsibleId });
+    tasks.push({ responsible_id: Number(responsibleValue) });
   });
 
-  return { tasks, hasEmptyDescription, firstEmptyInput };
+  return tasks;
+}
+
+function updateNewOrderTaskLabels() {
+  if (!newOrderTasksList) return;
+  const rows = Array.from(newOrderTasksList.children);
+  rows.forEach((row, index) => {
+    const label = row.querySelector('[data-role="task-label"]');
+    if (label) {
+      label.textContent = `Trabajo #${index + 1}`;
+    }
+  });
+
 }
 
 if (addOrderTaskButton) {
@@ -2666,7 +2661,7 @@ async function createOrder(event) {
   const invoiceNumber = newOrderInvoiceInput?.value.trim() || '';
   const originBranch = newOrderOriginSelect?.value || '';
   const measurements = collectMeasurements();
-  const { tasks: orderTasks, hasEmptyDescription, firstEmptyInput } = collectNewOrderTasks();
+  const orderTasks = collectNewOrderTasks();
 
   if (!selectedCustomerId) {
     showToast('Selecciona un cliente para registrar la orden.', 'error');

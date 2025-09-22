@@ -153,7 +153,7 @@ class OrderTask(Base):
         nullable=False,
         index=True,
     )
-    description = Column(String(255), nullable=False)
+    description = Column(String(255), nullable=True)
     status = Column(Enum(OrderTaskStatus), nullable=False, default=OrderTaskStatus.PENDING)
     responsible_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=now, nullable=False)

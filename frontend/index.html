@@ -300,8 +300,8 @@
               <div class="form-row">
                 <label>Trabajos a realizar</label>
                 <p class="muted small">
-                  Agrega cada uno de los trabajos que realizará la sastrería. Debes registrar al menos un
-                  trabajo.
+                  Usa las notas de la orden para describir los trabajos y agrega aquí los ítems que deseas
+                  controlar en el checklist.
                 </p>
                 <div id="newOrderTasksList" class="measurement-list"></div>
                 <button type="button" id="addOrderTaskButton" class="secondary">Agregar trabajo</button>
@@ -451,15 +451,13 @@
                     </div>
                     <form id="orderTaskForm" class="order-task-form hidden">
                       <div class="order-task-fields">
-                        <input
-                          type="text"
-                          id="orderTaskDescription"
-                          placeholder="Descripción de la tarea"
-                          aria-label="Descripción de la tarea"
-                        />
                         <select id="orderTaskResponsible" aria-label="Responsable"></select>
                         <button type="submit" class="secondary">Agregar</button>
                       </div>
+                      <p class="muted small">
+                        Registra los detalles del trabajo en las notas de la orden. El checklist crea tareas
+                        numeradas automáticamente.
+                      </p>
                     </form>
                     <p id="orderTasksPermissionsNotice" class="muted small hidden">
                       Solo los sastres o administradores pueden modificar el checklist.

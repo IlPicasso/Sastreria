@@ -143,6 +143,7 @@ def test_order_creation_persists_initial_tasks(db_session, vendor_user, customer
         tasks=[
             schemas.OrderTaskCreate(description="Ajustar bastilla", responsible_id=tailor.id),
             schemas.OrderTaskCreate(description="Planchar prenda"),
+            schemas.OrderTaskCreate(),
         ],
     )
 
@@ -155,12 +156,15 @@ def test_order_creation_persists_initial_tasks(db_session, vendor_user, customer
         .all()
     )
 
-    assert len(stored_tasks) == 2
+    assert len(stored_tasks) == 3
     assert stored_tasks[0].description == "Ajustar bastilla"
     assert stored_tasks[0].responsible_id == tailor.id
     assert stored_tasks[0].status == models.OrderTaskStatus.PENDING
     assert stored_tasks[1].description == "Planchar prenda"
     assert stored_tasks[1].responsible_id is None
+    assert stored_tasks[2].description == "Trabajo #1"
+    assert stored_tasks[2].responsible_id is None
+
 
 
 def test_order_creation_rejects_non_tailor_task_responsible(db_session, vendor_user, customer):
@@ -179,3 +183,22 @@ def test_order_creation_rejects_non_tailor_task_responsible(db_session, vendor_u
 
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail == "El usuario asignado no es un sastre"
+
+
+def test_create_order_without_tasks_is_allowed(db_session, vendor_user, customer):
+    order_in = schemas.OrderCreate(
+        order_number="ORD-500",
+        customer_id=customer.id,
+        origin_branch=models.Establishment.BATAN,
+    )
+
+    order = main.create_order_endpoint(order_in, db_session, vendor_user)
+
+    stored_tasks = (
+        db_session.query(models.OrderTask)
+        .filter(models.OrderTask.order_id == order.id)
+        .all()
+    )
+
+    assert stored_tasks == []
+

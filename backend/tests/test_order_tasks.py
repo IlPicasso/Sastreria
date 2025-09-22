@@ -83,11 +83,11 @@ def test_tailor_can_create_task_and_vendor_cannot_modify(db_session):
     asyncio.run(dependencies.tailor_or_admin_required()(tailor))
     created = main.create_order_task_endpoint(
         order.id,
-        schemas.OrderTaskCreate(description="Coser mangas"),
+        schemas.OrderTaskCreate(),
         db_session,
         tailor,
     )
-    assert created.description == "Coser mangas"
+    assert created.description == "Trabajo #1"
     assert created.status == models.OrderTaskStatus.PENDING
     assert created.order_id == order.id
     assert db_session.query(models.OrderTask).count() == 1
@@ -140,3 +140,12 @@ def test_status_update_requires_tailor_and_logs_audit(db_session):
     last_status_log = status_logs[-1]
     assert last_status_log.before == {"status": models.OrderTaskStatus.PENDING.value}
     assert last_status_log.after == {"status": models.OrderTaskStatus.COMPLETED.value}
+
+    updated_blank = main.update_order_task_endpoint(
+        order.id,
+        task.id,
+        schemas.OrderTaskUpdate(description="   "),
+        db_session,
+        admin,
+    )
+    assert updated_blank.description == "Trabajo #1"

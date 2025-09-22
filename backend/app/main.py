@@ -377,13 +377,9 @@ def create_order_endpoint(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente no encontrado")
 
     normalized_tasks: List[schemas.OrderTaskCreate] = []
-    for index, task in enumerate(order_in.tasks, start=1):
-        description = task.description.strip()
-        if not description:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"La descripción de la tarea {index} no puede estar vacía.",
-            )
+    incoming_tasks = getattr(order_in, "tasks", []) or []
+    for task in incoming_tasks:
+        description = (task.description or "").strip() if task.description else None
         if task.responsible_id is not None:
             _validate_assigned_tailor(db, task.responsible_id)
         normalized_tasks.append(
@@ -392,12 +388,6 @@ def create_order_endpoint(
                 status=task.status,
                 responsible_id=task.responsible_id,
             )
-        )
-
-    if not normalized_tasks:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Debes registrar al menos un trabajo para la orden.",
         )
 
     order_data = order_in.model_dump()
@@ -498,6 +488,10 @@ def create_order_task_endpoint(
     responsible_id = task_data.get("responsible_id")
     if responsible_id is not None:
         _validate_assigned_tailor(db, responsible_id)
+    description_value = task_data.get("description")
+    if isinstance(description_value, str):
+        trimmed = description_value.strip()
+        task_data["description"] = trimmed or None
     task = crud.create_order_task(
         db,
         order_id=order.id,

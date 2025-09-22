@@ -113,8 +113,7 @@ class OrderBase(BaseModel):
 class OrderCreate(OrderBase):
     origin_branch: Establishment
     tasks: List[OrderTaskCreate] = Field(
-        ...,
-        min_length=1,
+        default_factory=list,
         description="Listado de trabajos que se realizarán para completar la orden.",
     )
 
@@ -158,7 +157,7 @@ class OrderRead(OrderPublic):
 
 
 class OrderTaskBase(BaseModel):
-    description: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = Field(default=None, max_length=255)
 
 
 class OrderTaskCreate(OrderTaskBase):
@@ -167,11 +166,15 @@ class OrderTaskCreate(OrderTaskBase):
 
 
 class OrderTaskUpdate(BaseModel):
-    description: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    description: Optional[str] = Field(default=None, max_length=255)
     status: Optional[OrderTaskStatus] = None
     responsible_id: Optional[int] = Field(default=None, ge=1)
 
 
+class OrderTaskRead(BaseModel):
+    id: int
+    order_id: int
+    description: str
 
 class OrderTaskRead(OrderTaskBase):
     id: int

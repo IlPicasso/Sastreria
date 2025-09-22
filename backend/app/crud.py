@@ -6,6 +6,10 @@ from sqlalchemy.orm import Session, joinedload
 from . import auth, models, schemas
 
 
+DEFAULT_TASK_PREFIX = "Trabajo"
+DEFAULT_TASK_FALLBACK_LABEL = f"{DEFAULT_TASK_PREFIX} sin descripción"
+
+
 # Serialization helpers -----------------------------------------------------
 
 def serialize_user(user: Optional[models.User]) -> Optional[Dict[str, Any]]:
@@ -65,10 +69,13 @@ def serialize_order(order: Optional[models.Order]) -> Optional[Dict[str, Any]]:
 def serialize_order_task(task: Optional[models.OrderTask]) -> Optional[Dict[str, Any]]:
     if task is None:
         return None
+    description = (task.description or "").strip()
+    if not description:
+        description = DEFAULT_TASK_FALLBACK_LABEL
     return {
         "id": task.id,
         "order_id": task.order_id,
-        "description": task.description,
+        "description": description,
         "status": task.status.value if task.status else None,
         "responsible_id": task.responsible_id,
     }
@@ -309,13 +316,19 @@ def create_order(db: Session, order_in: schemas.OrderCreate) -> models.Order:
     db.add(db_order)
     db.flush()
 
-    tasks = getattr(order_in, "tasks", [])
+    tasks = getattr(order_in, "tasks", []) or []
+    fallback_sequence = 1
     for task in tasks:
         if not isinstance(task, schemas.OrderTaskCreate):
             task = schemas.OrderTaskCreate.model_validate(task)
-        description = task.description.strip()
-        if not description:
-            description = task.description
+        raw_description = getattr(task, "description", None)
+        fallback_label = _format_default_task_label(fallback_sequence)
+        description = _normalized_task_description(
+            description=raw_description,
+            fallback=fallback_label,
+        )
+        if not raw_description or not str(raw_description).strip():
+            fallback_sequence += 1
         db_task = models.OrderTask(
             order_id=db_order.id,
             description=description,
@@ -417,12 +430,49 @@ def delete_order(db: Session, db_order: models.Order) -> None:
 # Order task operations -----------------------------------------------------
 
 
+def _format_default_task_label(sequence: int) -> str:
+    return f"{DEFAULT_TASK_PREFIX} #{sequence}"
+
+
+def _next_task_sequence(db: Session, order_id: int) -> int:
+    total = (
+        db.query(func.count(models.OrderTask.id))
+        .filter(models.OrderTask.order_id == order_id)
+        .scalar()
+    )
+    return int(total or 0) + 1
+
+
+def _task_sequence_for(db: Session, task: models.OrderTask) -> int:
+    task_ids = (
+        db.query(models.OrderTask.id)
+        .filter(models.OrderTask.order_id == task.order_id)
+        .order_by(models.OrderTask.created_at.asc(), models.OrderTask.id.asc())
+        .all()
+    )
+    for index, (task_id,) in enumerate(task_ids, start=1):
+        if task_id == task.id:
+            return index
+    return len(task_ids) + 1
+
+
+def _normalized_task_description(
+    *,
+    description: Optional[str],
+    fallback: str,
+) -> str:
+    if description is None:
+        return fallback
+    trimmed = description.strip()
+    return trimmed or fallback
+
+
 def list_order_tasks(db: Session, *, order_id: int) -> List[models.OrderTask]:
     return (
         db.query(models.OrderTask)
         .options(joinedload(models.OrderTask.responsible))
         .filter(models.OrderTask.order_id == order_id)
-        .order_by(models.OrderTask.created_at.asc())
+        .order_by(models.OrderTask.created_at.asc(), models.OrderTask.id.asc())
         .all()
     )
 
@@ -430,9 +480,11 @@ def list_order_tasks(db: Session, *, order_id: int) -> List[models.OrderTask]:
 def create_order_task(
     db: Session, *, order_id: int, task_in: schemas.OrderTaskCreate
 ) -> models.OrderTask:
-    description = task_in.description.strip()
-    if not description:
-        description = task_in.description
+    fallback = _format_default_task_label(_next_task_sequence(db, order_id))
+    description = _normalized_task_description(
+        description=getattr(task_in, "description", None),
+        fallback=fallback,
+    )
     db_task = models.OrderTask(
         order_id=order_id,
         description=description,
@@ -464,11 +516,10 @@ def update_order_task(
 ) -> models.OrderTask:
     data = task_update.model_dump(exclude_unset=True)
     if "description" in data:
-        description = data["description"].strip()
-        if not description:
-            description = data["description"]
-        db_task.description = description
-
+        fallback = _format_default_task_label(_task_sequence_for(db, db_task))
+        db_task.description = _normalized_task_description(
+            description=data["description"], fallback=fallback
+        )
     if "status" in data:
         db_task.status = data["status"]
     if "responsible_id" in data:
