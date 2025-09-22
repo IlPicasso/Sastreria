@@ -158,6 +158,7 @@ const orderDetailMeasurementsContainer = document.getElementById('orderDetailMea
 const orderTasksList = document.getElementById('orderTasksList');
 const orderTaskForm = document.getElementById('orderTaskForm');
 const orderTaskDescriptionInput = document.getElementById('orderTaskDescription');
+const orderTaskResponsibleSelect = document.getElementById('orderTaskResponsibleSelect');
 const orderTasksPermissionsNotice = document.getElementById('orderTasksPermissionsNotice');
 const closeOrderDetailButton = document.getElementById('closeOrderDetailButton');
 const toastElement = document.getElementById('toast');
@@ -537,7 +538,6 @@ function renderOrderTasks() {
     description.className = 'order-task-description';
     const rawDescription = typeof task.description === 'string' ? task.description.trim() : '';
     const fallbackLabel = 'Trabajo sin descripción';
-
     const displayDescription = rawDescription || fallbackLabel;
     description.textContent = displayDescription;
     description.title = displayDescription;
@@ -1070,18 +1070,7 @@ function ensureNewOrderTaskRow() {
     addNewOrderTaskRow();
   }
   updateNewOrderTaskLabels();
-
-
 }
-
-function populateNewOrderTaskResponsibles() {
-  if (!newOrderTasksList) return;
-  newOrderTasksList.querySelectorAll('select[data-field="responsible"]').forEach((select) => {
-    const currentValue = select.value || '';
-    populateTailorSelect(select, currentValue);
-  });
-  updateNewOrderTaskLabels();
-  }
 
 function collectNewOrderTasks() {
   if (!newOrderTasksList) {
@@ -1118,7 +1107,6 @@ function updateNewOrderTaskLabels() {
     }
   });
 
- 
 }
 
 if (addOrderTaskButton) {

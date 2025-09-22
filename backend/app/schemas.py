@@ -197,10 +197,6 @@ class OrderTaskRead(BaseModel):
     id: int
     order_id: int
     description: str
-
-class OrderTaskRead(OrderTaskBase):
-    id: int
-    order_id: int
     status: OrderTaskStatus
     responsible_id: Optional[int] = None
     responsible: Optional[UserOut] = None

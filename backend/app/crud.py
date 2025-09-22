@@ -458,6 +458,7 @@ def _normalized_task_description(
     return trimmed or fallback
 
 
+
 def list_order_tasks(db: Session, *, order_id: int) -> List[models.OrderTask]:
     return (
         db.query(models.OrderTask)

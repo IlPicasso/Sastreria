@@ -167,7 +167,6 @@ def test_order_creation_persists_initial_tasks(db_session, vendor_user, customer
     assert stored_tasks[2].responsible_id is None
 
 
-
 def test_order_creation_rejects_non_tailor_task_responsible(db_session, vendor_user, customer):
     non_tailor = create_user(db_session, "no_tailor", models.UserRole.VENDEDOR)
     order_in = schemas.OrderCreate(
