@@ -291,6 +291,15 @@
                 <textarea id="newOrderNotes" rows="2" placeholder="Detalles adicionales"></textarea>
               </div>
               <div class="form-row">
+                <label>Trabajos a realizar</label>
+                <p class="muted small">
+                  Agrega cada uno de los trabajos que realizará la sastrería. Debes registrar al menos un
+                  trabajo.
+                </p>
+                <div id="newOrderTasksList" class="measurement-list"></div>
+                <button type="button" id="addOrderTaskButton" class="secondary">Agregar trabajo</button>
+              </div>
+              <div class="form-row">
                 <label for="assignTailor">Asignar a sastre</label>
                 <select id="assignTailor">
                   <option value="">Sin asignar</option>
@@ -426,6 +435,29 @@
                 <div class="form-row">
                   <label>Medidas</label>
                   <div id="orderDetailMeasurements" class="measurement-tags muted"></div>
+                </div>
+                <div class="form-row">
+                  <label>Checklist de producción</label>
+                  <div id="orderTasksContainer" class="order-tasks-container">
+                    <div id="orderTasksList" class="order-tasks-list muted">
+                      Selecciona una orden para ver el checklist.
+                    </div>
+                    <form id="orderTaskForm" class="order-task-form hidden">
+                      <div class="order-task-fields">
+                        <input
+                          type="text"
+                          id="orderTaskDescription"
+                          placeholder="Descripción de la tarea"
+                          aria-label="Descripción de la tarea"
+                        />
+                        <select id="orderTaskResponsible" aria-label="Responsable"></select>
+                        <button type="submit" class="secondary">Agregar</button>
+                      </div>
+                    </form>
+                    <p id="orderTasksPermissionsNotice" class="muted small hidden">
+                      Solo los sastres o administradores pueden modificar el checklist.
+                    </p>
+                  </div>
                 </div>
                 <div class="button-row">
                   <button type="submit" class="primary">Guardar cambios</button>

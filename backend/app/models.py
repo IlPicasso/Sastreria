@@ -27,6 +27,13 @@ class OrderStatus(str, enum.Enum):
     ENTREGADO = "Entregado"
 
 
+class OrderTaskStatus(str, enum.Enum):
+    """Progress states for order checklist items."""
+
+    PENDING = "pendiente"
+    COMPLETED = "completado"
+
+
 class Establishment(str, enum.Enum):
     """Physical branches that can originate an order."""
 
@@ -81,6 +88,12 @@ class Order(Base):
 
     assigned_tailor = relationship("User", back_populates="assigned_orders")
     customer = relationship("Customer", back_populates="orders")
+    tasks = relationship(
+        "OrderTask",
+        back_populates="order",
+        cascade="all, delete-orphan",
+        order_by="OrderTask.created_at",
+    )
 
 
 class Customer(Base):
@@ -126,6 +139,33 @@ class CustomerMeasurement(Base):
     )
 
     customer = relationship("Customer", back_populates="measurements")
+
+
+class OrderTask(Base):
+    """Checklist item linked to a tailoring order."""
+
+    __tablename__ = "order_tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(
+        Integer,
+        ForeignKey("orders.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    description = Column(String(255), nullable=False)
+    status = Column(Enum(OrderTaskStatus), nullable=False, default=OrderTaskStatus.PENDING)
+    responsible_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=now, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=now,
+        onupdate=now,
+        nullable=False,
+    )
+
+    order = relationship("Order", back_populates="tasks")
+    responsible = relationship("User")
 
 
 class AuditLog(Base):
