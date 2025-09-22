@@ -117,6 +117,9 @@ const customerDetailSummaryElement = document.getElementById('customerDetailSumm
 const customerOrderHistoryContainer = document.getElementById('customerOrderHistory');
 const customerMeasurementsContainer = document.getElementById('customerMeasurementsContainer');
 const updateCustomerMeasurementsContainer = document.getElementById('updateCustomerMeasurementsContainer');
+const updateCustomerNameInput = document.getElementById('updateCustomerName');
+const updateCustomerDocumentInput = document.getElementById('updateCustomerDocument');
+const updateCustomerPhoneInput = document.getElementById('updateCustomerPhone');
 const addCustomerMeasurementSetButton = document.getElementById('addCustomerMeasurementSet');
 const addUpdateCustomerMeasurementSetButton = document.getElementById('addUpdateCustomerMeasurementSet');
 const deleteCustomerButton = document.getElementById('deleteCustomerButton');
@@ -2026,9 +2029,11 @@ async function populateCustomerDetail(customer) {
       summaryParts.length ? summaryParts.join(' • ') : 'Sin datos de contacto registrados.';
   }
 
-  const nameInput = document.getElementById('updateCustomerName');
-  const documentInput = document.getElementById('updateCustomerDocument');
-  const phoneInput = document.getElementById('updateCustomerPhone');
+  const nameInput = updateCustomerNameInput || customerDetail?.querySelector('#updateCustomerName');
+  const documentInput =
+    updateCustomerDocumentInput || customerDetail?.querySelector('#updateCustomerDocument');
+  const phoneInput = updateCustomerPhoneInput || customerDetail?.querySelector('#updateCustomerPhone');
+
   const normalizedCustomerName =
     typeof customer?.full_name === 'string' ? customer.full_name.trim() : '';
   const normalizedCustomerDocument =
@@ -2430,9 +2435,15 @@ if (updateCustomerForm) {
       showToast('Selecciona un cliente para actualizar.', 'error');
       return;
     }
-    const fullName = document.getElementById('updateCustomerName').value.trim();
-    const documentId = document.getElementById('updateCustomerDocument').value.trim();
-    const phone = document.getElementById('updateCustomerPhone').value.trim();
+    const fullNameInput =
+      updateCustomerNameInput || customerDetail?.querySelector('#updateCustomerName');
+    const documentInput =
+      updateCustomerDocumentInput || customerDetail?.querySelector('#updateCustomerDocument');
+    const phoneInput =
+      updateCustomerPhoneInput || customerDetail?.querySelector('#updateCustomerPhone');
+    const fullName = fullNameInput?.value.trim() || '';
+    const documentId = documentInput?.value.trim() || '';
+    const phone = phoneInput?.value.trim() || '';
     const measurements = collectMeasurementSets(updateCustomerMeasurementsContainer);
     const submitButton = updateCustomerForm.querySelector('button[type="submit"]');
     submitButton.disabled = true;
