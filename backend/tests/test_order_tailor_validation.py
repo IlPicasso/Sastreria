@@ -71,6 +71,20 @@ def customer(db_session):
     return customer
 
 
+@pytest.fixture
+def tailor_user(db_session):
+    user = models.User(
+        username="tailor",
+        full_name="Sastre Ejemplo",
+        role=models.UserRole.SASTRE,
+        password_hash=auth.get_password_hash("secret"),
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
 def test_create_order_with_invalid_tailor_id(db_session, admin_user, customer):
     order_in = schemas.OrderCreate(
         order_number="ORD-100",
@@ -151,6 +165,7 @@ def test_order_creation_persists_initial_tasks(db_session, vendor_user, customer
     assert stored_tasks[1].responsible_id is None
     assert stored_tasks[2].description == "Empaque final"
     assert stored_tasks[2].responsible_id is None
+
 
 
 def test_order_creation_rejects_non_tailor_task_responsible(db_session, vendor_user, customer):
