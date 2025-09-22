@@ -42,6 +42,10 @@ Crear el primer usuario administrador:
 python create_admin.py --username admin --password cambialo --full-name "Administrador"
 ```
 
+Si necesitas crear un usuario inicial con otro rol, añade la opción `--role` con uno de
+los valores disponibles (`admin`, `sales`, `tailor`). El valor predeterminado es
+`admin`.
+
 Poblar la base de datos con información de ejemplo (opcional):
 
 ```bash
@@ -59,10 +63,21 @@ Al finalizar, se mostrará un resumen con los registros creados y las credencial
 Iniciar la API:
 
 ```bash
-uvicorn app.main:app --reload
+python -m app.main
 ```
 
-La documentación interactiva estará disponible en `http://localhost:8000/docs`.
+Por defecto el servidor escucha en `127.0.0.1:8000`. Para exponerlo en otro host o
+puerto (por ejemplo al desplegar en un servidor), define las variables de entorno
+`API_HOST`, `API_PORT` y opcionalmente `API_RELOAD` en tu `.env` o antes de ejecutar
+el comando. Ejemplo para escuchar en todas las interfaces:
+
+```bash
+export API_HOST=0.0.0.0
+export API_PORT=8000
+python -m app.main
+```
+
+La documentación interactiva estará disponible en `http://<host>:<puerto>/docs`.
 
 ### 2. Preparar el frontend
 

@@ -1,8 +1,11 @@
+import os
 import sys
 from pathlib import Path
 
+os.environ.setdefault("SECRET_KEY", "test-secret-key-value-32-chars!!")
+
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -58,6 +61,20 @@ def customer(db_session):
     return customer
 
 
+@pytest.fixture
+def tailor_user(db_session):
+    user = models.User(
+        username="tailor",
+        full_name="Sastre Ejemplo",
+        role=models.UserRole.SASTRE,
+        password_hash=auth.get_password_hash("secret"),
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
 def test_create_order_with_invalid_tailor_id(db_session, admin_user, customer):
     order_in = schemas.OrderCreate(
         order_number="ORD-100",
@@ -104,3 +121,39 @@ def test_update_order_rejects_non_tailor_assignment(db_session, admin_user, cust
 
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail == "El usuario asignado no es un sastre"
+
+
+def test_create_order_forbidden_for_tailor(db_session, tailor_user, customer):
+    order_in = schemas.OrderCreate(
+        order_number="ORD-300",
+        customer_id=customer.id,
+        origin_branch=models.Establishment.URDESA,
+        assigned_tailor_id=tailor_user.id,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        main.create_order_endpoint(order_in, db_session, tailor_user)
+
+    assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+    assert exc_info.value.detail == "No tiene permisos para realizar esta acción"
+
+
+def test_tailor_can_update_order(db_session, admin_user, tailor_user, customer):
+    created_order = main.create_order_endpoint(
+        schemas.OrderCreate(
+            order_number="ORD-400",
+            customer_id=customer.id,
+            origin_branch=models.Establishment.BATAN,
+        ),
+        db_session,
+        admin_user,
+    )
+
+    updated_order = main.update_order_endpoint(
+        created_order.id,
+        schemas.OrderUpdate(assigned_tailor_id=tailor_user.id),
+        db_session,
+        tailor_user,
+    )
+
+    assert updated_order.assigned_tailor_id == tailor_user.id

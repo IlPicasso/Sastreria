@@ -74,7 +74,14 @@
 
           <nav class="dashboard-subnav">
             <button type="button" class="dashboard-tab active" data-tab="orderListPanel">Órdenes registradas</button>
-            <button type="button" class="dashboard-tab" data-tab="orderCreatePanel">Crear orden</button>
+            <button
+              type="button"
+              class="dashboard-tab"
+              data-tab="orderCreatePanel"
+              id="orderCreateTabButton"
+            >
+              Crear orden
+            </button>
             <button type="button" class="dashboard-tab" data-tab="customersPanel">Clientes</button>
             <button
               type="button"
@@ -426,6 +433,29 @@
                 <div class="form-row">
                   <label>Medidas</label>
                   <div id="orderDetailMeasurements" class="measurement-tags muted"></div>
+                </div>
+                <div class="form-row">
+                  <label>Checklist de producción</label>
+                  <div id="orderTasksContainer" class="order-tasks-container">
+                    <div id="orderTasksList" class="order-tasks-list muted">
+                      Selecciona una orden para ver el checklist.
+                    </div>
+                    <form id="orderTaskForm" class="order-task-form hidden">
+                      <div class="order-task-fields">
+                        <input
+                          type="text"
+                          id="orderTaskDescription"
+                          placeholder="Descripción de la tarea"
+                          aria-label="Descripción de la tarea"
+                        />
+                        <select id="orderTaskResponsible" aria-label="Responsable"></select>
+                        <button type="submit" class="secondary">Agregar</button>
+                      </div>
+                    </form>
+                    <p id="orderTasksPermissionsNotice" class="muted small hidden">
+                      Solo los sastres o administradores pueden modificar el checklist.
+                    </p>
+                  </div>
                 </div>
                 <div class="button-row">
                   <button type="submit" class="primary">Guardar cambios</button>
