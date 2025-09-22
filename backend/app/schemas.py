@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 from .models import Establishment, OrderStatus, OrderTaskStatus, UserRole
 
@@ -113,7 +113,9 @@ class OrderBase(BaseModel):
 class OrderCreate(OrderBase):
     origin_branch: Establishment
     tasks: List[OrderTaskCreate] = Field(
-        default_factory=list,
+        ...,
+        min_length=1,
+
         description="Listado de trabajos que se realizarán para completar la orden.",
     )
 
@@ -157,7 +159,16 @@ class OrderRead(OrderPublic):
 
 
 class OrderTaskBase(BaseModel):
-    description: Optional[str] = Field(default=None, max_length=255)
+    description: str = Field(..., max_length=255)
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value: str) -> str:
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("La descripción de la tarea es obligatoria")
+        return trimmed
+
 
 
 class OrderTaskCreate(OrderTaskBase):
@@ -169,6 +180,17 @@ class OrderTaskUpdate(BaseModel):
     description: Optional[str] = Field(default=None, max_length=255)
     status: Optional[OrderTaskStatus] = None
     responsible_id: Optional[int] = Field(default=None, ge=1)
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("La descripción de la tarea es obligatoria")
+        return trimmed
+
 
 
 class OrderTaskRead(BaseModel):

@@ -300,8 +300,8 @@
               <div class="form-row">
                 <label>Trabajos a realizar</label>
                 <p class="muted small">
-                  Usa las notas de la orden para describir los trabajos y agrega aquí los ítems que deseas
-                  controlar en el checklist.
+                  Ingresa cada trabajo que debe realizarse para completar la orden. El sastre podrá marcar
+                  aquí los avances.
                 </p>
                 <div id="newOrderTasksList" class="measurement-list"></div>
                 <button type="button" id="addOrderTaskButton" class="secondary">Agregar trabajo</button>
@@ -451,12 +451,18 @@
                     </div>
                     <form id="orderTaskForm" class="order-task-form hidden">
                       <div class="order-task-fields">
-                        <select id="orderTaskResponsible" aria-label="Responsable"></select>
+                        <label class="sr-only" for="orderTaskDescription">Descripción del trabajo</label>
+                        <input
+                          type="text"
+                          id="orderTaskDescription"
+                          maxlength="255"
+                          placeholder="Describe el trabajo a registrar"
+                        />
                         <button type="submit" class="secondary">Agregar</button>
                       </div>
                       <p class="muted small">
-                        Registra los detalles del trabajo en las notas de la orden. El checklist crea tareas
-                        numeradas automáticamente.
+                        Añade los trabajos pendientes manualmente y marca cada casilla cuando el sastre los
+                        complete.
                       </p>
                     </form>
                     <p id="orderTasksPermissionsNotice" class="muted small hidden">

@@ -379,16 +379,21 @@ def create_order_endpoint(
     normalized_tasks: List[schemas.OrderTaskCreate] = []
     incoming_tasks = getattr(order_in, "tasks", []) or []
     for task in incoming_tasks:
-        description = (task.description or "").strip() if task.description else None
         if task.responsible_id is not None:
             _validate_assigned_tailor(db, task.responsible_id)
         normalized_tasks.append(
             schemas.OrderTaskCreate(
-                description=description,
+                description=task.description,
                 status=task.status,
                 responsible_id=task.responsible_id,
             )
         )
+    if not normalized_tasks:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Debes registrar al menos un trabajo para la orden",
+        )
+
 
     order_data = order_in.model_dump()
     order_data["tasks"] = [task.model_dump() for task in normalized_tasks]
@@ -490,8 +495,7 @@ def create_order_task_endpoint(
         _validate_assigned_tailor(db, responsible_id)
     description_value = task_data.get("description")
     if isinstance(description_value, str):
-        trimmed = description_value.strip()
-        task_data["description"] = trimmed or None
+        task_data["description"] = description_value.strip()
     task = crud.create_order_task(
         db,
         order_id=order.id,

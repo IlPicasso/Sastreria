@@ -5,7 +5,8 @@ from pathlib import Path
 os.environ.setdefault("SECRET_KEY", "test-secret-key-value-32-chars!!")
 
 import pytest
-from fastapi import HTTPException, status
+from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -143,7 +144,7 @@ def test_order_creation_persists_initial_tasks(db_session, vendor_user, customer
         tasks=[
             schemas.OrderTaskCreate(description="Ajustar bastilla", responsible_id=tailor.id),
             schemas.OrderTaskCreate(description="Planchar prenda"),
-            schemas.OrderTaskCreate(),
+            schemas.OrderTaskCreate(description="Empaque final"),
         ],
     )
 
@@ -162,7 +163,7 @@ def test_order_creation_persists_initial_tasks(db_session, vendor_user, customer
     assert stored_tasks[0].status == models.OrderTaskStatus.PENDING
     assert stored_tasks[1].description == "Planchar prenda"
     assert stored_tasks[1].responsible_id is None
-    assert stored_tasks[2].description == "Trabajo #1"
+    assert stored_tasks[2].description == "Empaque final"
     assert stored_tasks[2].responsible_id is None
 
 
@@ -185,20 +186,11 @@ def test_order_creation_rejects_non_tailor_task_responsible(db_session, vendor_u
     assert exc_info.value.detail == "El usuario asignado no es un sastre"
 
 
-def test_create_order_without_tasks_is_allowed(db_session, vendor_user, customer):
-    order_in = schemas.OrderCreate(
-        order_number="ORD-500",
-        customer_id=customer.id,
-        origin_branch=models.Establishment.BATAN,
-    )
-
-    order = main.create_order_endpoint(order_in, db_session, vendor_user)
-
-    stored_tasks = (
-        db_session.query(models.OrderTask)
-        .filter(models.OrderTask.order_id == order.id)
-        .all()
-    )
-
-    assert stored_tasks == []
-
+def test_create_order_without_tasks_is_rejected():
+    with pytest.raises(ValidationError):
+        schemas.OrderCreate(
+            order_number="ORD-500",
+            customer_id=1,
+            origin_branch=models.Establishment.BATAN,
+            tasks=[],
+        )
