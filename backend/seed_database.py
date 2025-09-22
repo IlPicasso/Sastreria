@@ -77,6 +77,17 @@ ORDER_NOTES: Sequence[str] = (
     "Preferencia por corte slim",
 )
 
+ORDER_TASK_TEMPLATES: Sequence[str] = (
+    "Tomar medidas base",
+    "Ajustar bastilla",
+    "Coser botones",
+    "Entallar cintura",
+    "Planchar prenda",
+    "Reforzar costuras",
+    "Cerrar dobladillos",
+    "Colocar cierres",
+)
+
 CONFIRM_POSITIVES = {"y", "yes", "s", "si", "sí"}
 
 
@@ -350,6 +361,36 @@ def random_entry_date(delivery_date: Optional[date]) -> date:
     return latest - timedelta(days=offset)
 
 
+def generate_order_tasks(
+    tailors: Sequence[models.User],
+) -> List[schemas.OrderTaskCreate]:
+    """Create a sample checklist for seeded orders."""
+
+    if not ORDER_TASK_TEMPLATES:
+        return [schemas.OrderTaskCreate(description="Trabajo general")]
+
+    max_tasks = min(len(ORDER_TASK_TEMPLATES), 4)
+    min_tasks = min(2, max_tasks)
+    total = random.randint(min_tasks, max_tasks) if max_tasks else 1
+    descriptions = random.sample(list(ORDER_TASK_TEMPLATES), k=total)
+    tasks: List[schemas.OrderTaskCreate] = []
+    for description in descriptions:
+        responsible_id = None
+        if tailors and random.random() < 0.75:
+            responsible_id = random.choice(tailors).id
+        status = schemas.OrderTaskStatus.PENDING
+        if random.random() < 0.25:
+            status = schemas.OrderTaskStatus.COMPLETED
+        tasks.append(
+            schemas.OrderTaskCreate(
+                description=description,
+                responsible_id=responsible_id,
+                status=status,
+            )
+        )
+    return tasks
+
+
 
 def seed_orders(
     db: Session,
@@ -387,6 +428,7 @@ def seed_orders(
             existing_invoice_numbers, invoice_number_candidates(year)
         )
         existing_invoice_numbers.add(invoice_number)
+        tasks = generate_order_tasks(tailors)
         order_in = schemas.OrderCreate(
             order_number=unique_identifier(
                 existing_order_numbers, order_number_candidates(year)
@@ -402,6 +444,7 @@ def seed_orders(
             delivery_date=random_delivery_date(status),
             invoice_number=invoice_number,
             origin_branch=random.choice(list(models.Establishment)),
+            tasks=tasks,
         )
         if needs_entry_date and orders_table is not None:
             entry_date = random_entry_date(order_in.delivery_date)
@@ -428,6 +471,8 @@ def seed_orders(
             order = crud.get_order_by_number(db, order_in.order_number)
             if order is None:
                 raise RuntimeError("No se pudo recuperar la orden recién insertada")
+            for task in tasks:
+                crud.create_order_task(db, order_id=order.id, task_in=task)
         else:
             order = crud.create_order(db, order_in)
 
