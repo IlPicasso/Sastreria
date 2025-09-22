@@ -83,6 +83,8 @@ const panelNavButton = document.getElementById('panelNavButton');
 const loginNavButton = document.getElementById('loginNavButton');
 const dashboardTabButtons = document.querySelectorAll('.dashboard-tab');
 const dashboardPanels = document.querySelectorAll('.dashboard-panel');
+const orderCreateTabButton = document.getElementById('orderCreateTabButton');
+const orderCreatePanel = document.getElementById('orderCreatePanel');
 const orderLookupForm = document.getElementById('orderLookupForm');
 const orderNumberInput = document.getElementById('orderNumber');
 const orderDocumentInput = document.getElementById('customerDocument');
@@ -201,23 +203,61 @@ if (loginNavButton) {
   });
 }
 
+function isOrderCreatePanelHidden() {
+  return !orderCreatePanel || orderCreatePanel.classList.contains('hidden');
+}
+
+function syncCreateOrderFormDisabled() {
+  if (!createOrderForm) return;
+  const shouldDisable = isOrderCreatePanelHidden();
+  createOrderForm.dataset.disabled = shouldDisable ? 'true' : 'false';
+  const submitButton = createOrderForm.querySelector('button[type="submit"]');
+  if (submitButton) {
+    submitButton.disabled = shouldDisable;
+  }
+}
+
 function setActiveDashboardTab(tabId = 'orderListPanel') {
   if (!dashboardPanels.length) return;
+  const userRole = state.user?.role || null;
   let targetTab = tabId || 'orderListPanel';
-  if (targetTab === 'auditLogPanel' && state.user?.role !== 'administrador') {
+  if (targetTab === 'auditLogPanel' && userRole !== 'administrador') {
+    targetTab = 'orderListPanel';
+  }
+  if (targetTab === 'orderCreatePanel' && userRole === 'sastre') {
     targetTab = 'orderListPanel';
   }
   activeDashboardTab = targetTab;
   dashboardTabButtons.forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.tab === targetTab);
+    const tab = btn.dataset.tab;
+    if (tab === 'orderCreatePanel') {
+      const shouldHideTab = userRole === 'sastre';
+      if (shouldHideTab) {
+        btn.classList.add('hidden');
+      } else {
+        btn.classList.remove('hidden');
+      }
+      btn.disabled = shouldHideTab;
+    }
+    btn.classList.toggle('active', tab === targetTab);
   });
   dashboardPanels.forEach((panel) => {
-    panel.classList.toggle('hidden', panel.id !== targetTab);
+    if (panel.id === 'orderCreatePanel' && userRole === 'sastre') {
+      panel.classList.add('hidden');
+    } else {
+      panel.classList.toggle('hidden', panel.id !== targetTab);
+    }
   });
+  syncCreateOrderFormDisabled();
 }
 
 dashboardTabButtons.forEach((btn) => {
-  btn.addEventListener('click', () => setActiveDashboardTab(btn.dataset.tab));
+  btn.addEventListener('click', () => {
+    if (btn.disabled) {
+      return;
+    }
+    setActiveDashboardTab(btn.dataset.tab);
+  });
 });
 
 setActiveDashboardTab(activeDashboardTab);
@@ -872,8 +912,24 @@ function updateUserInfo() {
   if (auditLogTabButton) {
     auditLogTabButton.classList.toggle('hidden', !isAdmin);
   }
+  const isTailor = state.user.role === 'sastre';
+  if (orderCreateTabButton) {
+    if (isTailor) {
+      orderCreateTabButton.classList.add('hidden');
+    } else {
+      orderCreateTabButton.classList.remove('hidden');
+    }
+    orderCreateTabButton.disabled = isTailor;
+  }
+  if (orderCreatePanel && isTailor) {
+    orderCreatePanel.classList.add('hidden');
+  }
   if (!isAdmin && activeDashboardTab === 'auditLogPanel') {
     setActiveDashboardTab('orderListPanel');
+  } else if (isTailor && activeDashboardTab === 'orderCreatePanel') {
+    setActiveDashboardTab('orderListPanel');
+  } else {
+    setActiveDashboardTab(activeDashboardTab);
   }
 }
 
@@ -2139,6 +2195,10 @@ if (deleteCustomerButton) {
 }
 async function createOrder(event) {
   event.preventDefault();
+  if (!createOrderForm) return;
+  if (createOrderForm.dataset.disabled === 'true' || isOrderCreatePanelHidden()) {
+    return;
+  }
   const newOrderNumber = document.getElementById('newOrderNumber').value.trim();
   const selectedCustomerId = Number(orderCustomerSelect.value);
   const newCustomerName = document.getElementById('newCustomerName').value.trim();
@@ -2163,7 +2223,9 @@ async function createOrder(event) {
   }
 
   const submitButton = createOrderForm.querySelector('button[type="submit"]');
-  submitButton.disabled = true;
+  if (submitButton) {
+    submitButton.disabled = true;
+  }
   try {
     await apiFetch('/orders', {
       method: 'POST',
@@ -2191,7 +2253,7 @@ async function createOrder(event) {
   } catch (error) {
     showToast(error.message, 'error');
   } finally {
-    submitButton.disabled = false;
+    syncCreateOrderFormDisabled();
   }
 }
 
