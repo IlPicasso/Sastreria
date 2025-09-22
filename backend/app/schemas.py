@@ -172,6 +172,7 @@ class OrderTaskUpdate(BaseModel):
     responsible_id: Optional[int] = Field(default=None, ge=1)
 
 
+
 class OrderTaskRead(OrderTaskBase):
     id: int
     order_id: int
