@@ -727,7 +727,34 @@ async function apiFetch(path, { method = 'GET', body, headers = {}, auth = true 
     if (response.status === 401 && state.token) {
       handleLogout(true);
     }
-    const message = data?.detail || data?.message || (typeof data === 'string' ? data : 'Error en la solicitud');
+    let message = 'Error en la solicitud';
+    if (data) {
+      if (Array.isArray(data.detail)) {
+        message = data.detail
+          .map((item) => {
+            if (item?.msg) return item.msg;
+            if (item?.detail) return item.detail;
+            if (item?.message) return item.message;
+            if (typeof item === 'string') return item;
+            try {
+              return JSON.stringify(item);
+            } catch (error) {
+              return 'Error en la solicitud';
+            }
+          })
+          .join(' ');
+      } else if (typeof data.detail === 'string') {
+        message = data.detail;
+      } else if (data.detail?.msg) {
+        message = data.detail.msg;
+      } else if (data.detail?.message) {
+        message = data.detail.message;
+      } else if (typeof data.message === 'string') {
+        message = data.message;
+      } else if (typeof data === 'string') {
+        message = data;
+      }
+    }
     throw new Error(message || 'Error en la solicitud');
   }
 
@@ -2354,7 +2381,8 @@ async function handleOrderUpdate(event) {
   }
   const currentOrder = state.orders.find((order) => order.id === state.selectedOrderId);
   const affectedCustomerId = currentOrder?.customer_id;
-  const deliveryDateValue = orderDetailDeliveryDateInput?.value || '';
+  const deliveryDateValueRaw = orderDetailDeliveryDateInput?.value || '';
+  const deliveryDateValue = normalizeDateForApi(deliveryDateValueRaw);
   const invoiceValue = invoiceValueRaw || null;
   try {
     await apiFetch(`/orders/${state.selectedOrderId}`, {
@@ -2631,7 +2659,8 @@ async function createOrder(event) {
   const newCustomerDocument = document.getElementById('newCustomerDocument').value.trim();
   const newCustomerContact = document.getElementById('newCustomerContact').value.trim();
   const newOrderStatus = document.getElementById('newOrderStatus').value;
-  const newOrderDeliveryDate = newOrderDeliveryDateInput?.value || '';
+  const newOrderDeliveryDateRaw = newOrderDeliveryDateInput?.value || '';
+  const newOrderDeliveryDate = normalizeDateForApi(newOrderDeliveryDateRaw);
   const newOrderNotes = document.getElementById('newOrderNotes').value.trim();
   const assignedTailorId = assignTailorSelect.value ? Number(assignTailorSelect.value) : null;
   const invoiceNumber = newOrderInvoiceInput?.value.trim() || '';
@@ -2737,6 +2766,43 @@ function parseDateValue(value) {
     return null;
   }
   return parsed;
+}
+
+function formatDateForApi(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeDateForApi(value) {
+  if (!value) {
+    return '';
+  }
+  if (value instanceof Date) {
+    return formatDateForApi(value);
+  }
+  if (typeof value === 'number') {
+    return formatDateForApi(new Date(value));
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return '';
+    }
+    const match = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (match) {
+      return match[1];
+    }
+    const parsed = parseDateValue(trimmed);
+    if (parsed) {
+      return formatDateForApi(parsed);
+    }
+  }
+  return '';
 }
 
 function toTimestamp(value) {
