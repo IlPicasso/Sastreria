@@ -13,6 +13,7 @@ const state = {
   customers: [],
   customerOptions: [],
   customerOrdersCache: {},
+  customerDisplayCache: {},
   customerSearchTerm: '',
   orderSearchTerm: '',
   customerPage: 1,
@@ -1209,6 +1210,7 @@ function handleLogout(auto = false) {
   state.customers = [];
   state.customerOptions = [];
   state.customerOrdersCache = {};
+  state.customerDisplayCache = {};
   state.customerSearchTerm = '';
   state.orderSearchTerm = '';
   state.customerPage = 1;
@@ -1338,17 +1340,6 @@ function sortOrdersByRecency(orders) {
   });
 }
 
-function getLatestOrderForCustomer(ordersForCustomer = []) {
-  if (!Array.isArray(ordersForCustomer) || ordersForCustomer.length === 0) {
-    return null;
-  }
-  if (ordersForCustomer.length === 1) {
-    return ordersForCustomer[0];
-  }
-  const [mostRecent] = sortOrdersByRecency(ordersForCustomer);
-  return mostRecent ?? null;
-}
-
 function getCustomerDisplayData(customer, ordersForCustomer = []) {
   const normalizedName =
     typeof customer?.full_name === 'string' ? customer.full_name.trim() : '';
@@ -1357,23 +1348,62 @@ function getCustomerDisplayData(customer, ordersForCustomer = []) {
   const normalizedContact =
     typeof customer?.phone === 'string' ? customer.phone.trim() : '';
 
-  const latestOrder = getLatestOrderForCustomer(ordersForCustomer);
+  const cacheKey =
+    customer?.id !== null && customer?.id !== undefined ? String(customer.id) : null;
+  const cachedDisplay =
+    cacheKey && state.customerDisplayCache ? state.customerDisplayCache[cacheKey] || {} : {};
 
-  const fallbackName =
-    typeof latestOrder?.customer_name === 'string' ? latestOrder.customer_name.trim() : '';
-  const fallbackDocument =
-    typeof latestOrder?.customer_document === 'string'
-      ? latestOrder.customer_document.trim()
-      : '';
-  const fallbackContact =
-    typeof latestOrder?.customer_contact === 'string'
-      ? latestOrder.customer_contact.trim()
-      : '';
+  let fallbackName = '';
+  let fallbackDocument = '';
+  let fallbackContact = '';
+
+  if (!normalizedName || !normalizedDocument || !normalizedContact) {
+    const orderList = Array.isArray(ordersForCustomer) ? ordersForCustomer : [];
+    const ordersByRecency = sortOrdersByRecency(orderList);
+    for (const order of ordersByRecency) {
+      if (!fallbackName && typeof order?.customer_name === 'string') {
+        const trimmed = order.customer_name.trim();
+        if (trimmed) {
+          fallbackName = trimmed;
+        }
+      }
+      if (!fallbackDocument && typeof order?.customer_document === 'string') {
+        const trimmed = order.customer_document.trim();
+        if (trimmed) {
+          fallbackDocument = trimmed;
+        }
+      }
+      if (!fallbackContact && typeof order?.customer_contact === 'string') {
+        const trimmed = order.customer_contact.trim();
+        if (trimmed) {
+          fallbackContact = trimmed;
+        }
+      }
+      if (fallbackName && fallbackDocument && fallbackContact) {
+        break;
+      }
+    }
+  }
+
+  const name = normalizedName || fallbackName || cachedDisplay.name || '';
+  const document = normalizedDocument || fallbackDocument || cachedDisplay.document || '';
+  const contact = normalizedContact || fallbackContact || cachedDisplay.contact || '';
+
+  if (cacheKey) {
+    if (!state.customerDisplayCache) {
+      state.customerDisplayCache = {};
+    }
+    state.customerDisplayCache[cacheKey] = {
+      name,
+      document,
+      contact,
+    };
+  }
 
   return {
-    name: normalizedName || fallbackName,
-    document: normalizedDocument || fallbackDocument,
-    contact: normalizedContact || fallbackContact,
+    name,
+    document,
+    contact,
   };
 }
 
@@ -1621,10 +1651,13 @@ async function populateCustomerDetail(customer) {
   const expectedOrderCount =
     typeof customer.order_count === 'number' ? customer.order_count : undefined;
   const cached = state.customerOrdersCache[cacheKey];
-  const cachedItems = cached?.items ?? [];
+  const cachedItems = Array.isArray(cached?.items) ? cached.items : [];
+  const cacheComplete = cached?.complete === true;
+  const hasCache = Boolean(cached);
   const needsFetch =
-    expectedOrderCount !== undefined &&
-    (cached?.complete !== true || cachedItems.length < expectedOrderCount);
+    expectedOrderCount !== undefined
+      ? !cacheComplete || cachedItems.length < expectedOrderCount
+      : !hasCache || !cacheComplete;
 
   if (needsFetch) {
     showCustomerOrderHistoryLoading();
@@ -1662,9 +1695,21 @@ async function populateCustomerDetail(customer) {
   const nameInput = document.getElementById('updateCustomerName');
   const documentInput = document.getElementById('updateCustomerDocument');
   const phoneInput = document.getElementById('updateCustomerPhone');
-  if (nameInput) nameInput.value = customer.full_name;
-  if (documentInput) documentInput.value = customer.document_id;
-  if (phoneInput) phoneInput.value = customer.phone || '';
+  const normalizedCustomerName =
+    typeof customer?.full_name === 'string' ? customer.full_name.trim() : '';
+  const normalizedCustomerDocument =
+    typeof customer?.document_id === 'string' ? customer.document_id.trim() : '';
+  const normalizedCustomerPhone =
+    typeof customer?.phone === 'string' ? customer.phone.trim() : '';
+  if (nameInput) {
+    nameInput.value = normalizedCustomerName || displayData.name || '';
+  }
+  if (documentInput) {
+    documentInput.value = normalizedCustomerDocument || displayData.document || '';
+  }
+  if (phoneInput) {
+    phoneInput.value = normalizedCustomerPhone || displayData.contact || '';
+  }
 
   if (updateCustomerMeasurementsContainer) {
     updateCustomerMeasurementsContainer.innerHTML = '';
@@ -1856,6 +1901,7 @@ async function handleOrderUpdate(event) {
     });
     if (affectedCustomerId) {
       delete state.customerOrdersCache[String(affectedCustomerId)];
+      delete state.customerDisplayCache[String(affectedCustomerId)];
     }
     showToast('Orden actualizada.', 'success');
     await loadOrders();
@@ -2076,8 +2122,13 @@ if (deleteCustomerButton) {
       return;
     }
     try {
+      const deletedId = state.selectedCustomerId;
       await apiFetch(`/customers/${state.selectedCustomerId}`, { method: 'DELETE' });
       showToast('Cliente eliminado correctamente.', 'success');
+      if (deletedId !== null && deletedId !== undefined) {
+        delete state.customerOrdersCache[String(deletedId)];
+        delete state.customerDisplayCache[String(deletedId)];
+      }
       state.selectedCustomerId = null;
       await loadCustomers();
       await refreshCustomerOptions();
@@ -2132,6 +2183,7 @@ async function createOrder(event) {
       },
     });
     delete state.customerOrdersCache[String(selectedCustomerId)];
+    delete state.customerDisplayCache[String(selectedCustomerId)];
     await loadOrders();
     await loadCustomers();
     resetCreateOrderForm();
