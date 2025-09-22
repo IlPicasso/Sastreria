@@ -1,8 +1,10 @@
 import math
+from pathlib import Path
 from typing import List, Optional, Tuple
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from . import auth, crud, models, schemas
@@ -35,6 +37,15 @@ def resolve_pagination(
 
 app = FastAPI(title=settings.app_name)
 
+FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
+
+
+def _get_frontend_asset(filename: str) -> Path:
+    asset_path = FRONTEND_DIR / filename
+    if not asset_path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recurso no encontrado")
+    return asset_path
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -47,6 +58,21 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
+
+
+@app.get("/", response_class=FileResponse)
+def serve_frontend_index() -> FileResponse:
+    return FileResponse(_get_frontend_asset("index.html"), media_type="text/html")
+
+
+@app.get("/app.js")
+def serve_frontend_script() -> FileResponse:
+    return FileResponse(_get_frontend_asset("app.js"), media_type="application/javascript")
+
+
+@app.get("/styles.css")
+def serve_frontend_styles() -> FileResponse:
+    return FileResponse(_get_frontend_asset("styles.css"), media_type="text/css")
 
 
 def _validate_assigned_tailor(
@@ -458,3 +484,14 @@ def list_audit_logs_endpoint(
 ):
     _ = current_user
     return crud.list_audit_logs(db, limit=limit)
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        "app.main:app",
+        host=settings.api_host,
+        port=settings.api_port,
+        reload=settings.api_reload,
+    )

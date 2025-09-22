@@ -59,20 +59,33 @@ Al finalizar, se mostrará un resumen con los registros creados y las credencial
 Iniciar la API:
 
 ```bash
-uvicorn app.main:app --reload
+python -m app.main
 ```
 
-La documentación interactiva estará disponible en `http://localhost:8000/docs`.
+Por defecto el servidor escucha en `127.0.0.1:8000`. Para exponerlo en otro host o
+puerto (por ejemplo al desplegar en un servidor), define las variables de entorno
+`API_HOST`, `API_PORT` y opcionalmente `API_RELOAD` en tu `.env` o antes de ejecutar
+el comando. Ejemplo para escuchar en todas las interfaces:
 
-### 2. Preparar el frontend
+```bash
+export API_HOST=0.0.0.0
+export API_PORT=8000
+python -m app.main
+```
 
-El frontend es una SPA ligera sin dependencias externas. Desde la carpeta `frontend` ejecuta:
+La documentación interactiva estará disponible en `http://<host>:<puerto>/docs`.
+
+### 2. Acceder al frontend
+
+Con el backend en ejecución, visita `http://<host>:<puerto>` (por defecto `http://127.0.0.1:8000`) para utilizar el portal web. La aplicación FastAPI sirve directamente los archivos estáticos del frontend.
+
+Si prefieres ejecutar el frontend desde un servidor estático independiente (por ejemplo para desarrollo), desde la carpeta `frontend` ejecuta:
 
 ```bash
 python -m http.server 5173
 ```
 
-Luego visita `http://localhost:5173` en tu navegador. Asegúrate de que el backend esté funcionando en `http://localhost:8000`.
+Luego visita `http://localhost:5173` en tu navegador. Asegúrate de que el backend esté funcionando en `http://localhost:8000` o configura `API_BASE_URL` según se describe más adelante.
 
 ## Roles disponibles
 
@@ -98,7 +111,7 @@ frontend/      # Portal HTML/JS/CSS
 
 ## Variables útiles
 
-Si necesitas cambiar la URL del backend para el frontend, define `API_BASE_URL` antes de cargar `app.js`:
+El frontend detecta automáticamente la URL del backend utilizando el mismo origen desde el que se sirve la página. Si ejecutas la interfaz en un servidor distinto al de la API (por ejemplo `http://localhost:5173`), define `API_BASE_URL` antes de cargar `app.js`:
 
 ```html
 <script>

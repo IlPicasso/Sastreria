@@ -1,4 +1,19 @@
-const API_BASE_URL = window.API_BASE_URL || 'http://localhost:8000';
+function resolveDefaultApiBaseUrl() {
+  if (typeof window === 'undefined') {
+    return 'http://localhost:8000';
+  }
+  const { protocol, hostname, port } = window.location;
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+  if (isLocalhost && port && port !== '8000') {
+    return `${protocol}//${hostname}:8000`;
+  }
+  if (port) {
+    return `${protocol}//${hostname}:${port}`;
+  }
+  return `${protocol}//${hostname}`;
+}
+
+const API_BASE_URL = window.API_BASE_URL || resolveDefaultApiBaseUrl();
 const DEFAULT_PAGE_SIZE = 10;
 const PAGE_SIZE_OPTIONS = [10, 15, 20, 25, 30, 35, 40, 45, 50];
 const ESTABLISHMENTS = ['Urdesa', 'Batan', 'Indie'];
