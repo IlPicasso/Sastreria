@@ -1,8 +1,12 @@
+import os
 import sys
 from pathlib import Path
 
+os.environ.setdefault("SECRET_KEY", "test-secret-key-value-32-chars!!")
+
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -31,18 +35,27 @@ def db_session():
         Base.metadata.drop_all(bind=engine)
 
 
-@pytest.fixture
-def admin_user(db_session):
+def create_user(session, username: str, role: models.UserRole) -> models.User:
     user = models.User(
-        username="admin",
-        full_name="Admin",
-        role=models.UserRole.ADMIN,
+        username=username,
+        full_name=username.title(),
+        role=role,
         password_hash=auth.get_password_hash("secret"),
     )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
+    session.add(user)
+    session.commit()
+    session.refresh(user)
     return user
+
+
+@pytest.fixture
+def admin_user(db_session):
+    return create_user(db_session, "admin", models.UserRole.ADMIN)
+
+
+@pytest.fixture
+def vendor_user(db_session):
+    return create_user(db_session, "vendor", models.UserRole.VENDEDOR)
 
 
 @pytest.fixture
@@ -64,6 +77,7 @@ def test_create_order_with_invalid_tailor_id(db_session, admin_user, customer):
         customer_id=customer.id,
         origin_branch=models.Establishment.BATAN,
         assigned_tailor_id=999,
+        tasks=[schemas.OrderTaskCreate(description="Ajuste inicial")],
     )
 
     with pytest.raises(HTTPException) as exc_info:
@@ -79,6 +93,7 @@ def test_update_order_rejects_non_tailor_assignment(db_session, admin_user, cust
             order_number="ORD-200",
             customer_id=customer.id,
             origin_branch=models.Establishment.URDESA,
+            tasks=[schemas.OrderTaskCreate(description="Preparar prenda")],
         ),
         db_session,
         admin_user,
@@ -104,3 +119,63 @@ def test_update_order_rejects_non_tailor_assignment(db_session, admin_user, cust
 
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail == "El usuario asignado no es un sastre"
+
+
+def test_order_creation_persists_initial_tasks(db_session, vendor_user, customer):
+    tailor = create_user(db_session, "tailor", models.UserRole.SASTRE)
+    order_in = schemas.OrderCreate(
+        order_number="ORD-300",
+        customer_id=customer.id,
+        origin_branch=models.Establishment.URDESA,
+        tasks=[
+            schemas.OrderTaskCreate(description="Ajustar bastilla", responsible_id=tailor.id),
+            schemas.OrderTaskCreate(description="Planchar prenda"),
+            schemas.OrderTaskCreate(description="Empaque final"),
+        ],
+    )
+
+    order = main.create_order_endpoint(order_in, db_session, vendor_user)
+
+    stored_tasks = (
+        db_session.query(models.OrderTask)
+        .filter(models.OrderTask.order_id == order.id)
+        .order_by(models.OrderTask.created_at.asc())
+        .all()
+    )
+
+    assert len(stored_tasks) == 3
+    assert stored_tasks[0].description == "Ajustar bastilla"
+    assert stored_tasks[0].responsible_id == tailor.id
+    assert stored_tasks[0].status == models.OrderTaskStatus.PENDING
+    assert stored_tasks[1].description == "Planchar prenda"
+    assert stored_tasks[1].responsible_id is None
+    assert stored_tasks[2].description == "Empaque final"
+    assert stored_tasks[2].responsible_id is None
+
+
+def test_order_creation_rejects_non_tailor_task_responsible(db_session, vendor_user, customer):
+    non_tailor = create_user(db_session, "no_tailor", models.UserRole.VENDEDOR)
+    order_in = schemas.OrderCreate(
+        order_number="ORD-400",
+        customer_id=customer.id,
+        origin_branch=models.Establishment.BATAN,
+        tasks=[
+            schemas.OrderTaskCreate(description="Coser botones", responsible_id=non_tailor.id)
+        ],
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        main.create_order_endpoint(order_in, db_session, vendor_user)
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "El usuario asignado no es un sastre"
+
+
+def test_create_order_without_tasks_is_rejected():
+    with pytest.raises(ValidationError):
+        schemas.OrderCreate(
+            order_number="ORD-500",
+            customer_id=1,
+            origin_branch=models.Establishment.BATAN,
+            tasks=[],
+        )
