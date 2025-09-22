@@ -375,7 +375,33 @@ def create_order_endpoint(
     customer = crud.get_customer(db, order_in.customer_id)
     if not customer:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente no encontrado")
+
+    normalized_tasks: List[schemas.OrderTaskCreate] = []
+    for index, task in enumerate(order_in.tasks, start=1):
+        description = task.description.strip()
+        if not description:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"La descripción de la tarea {index} no puede estar vacía.",
+            )
+        if task.responsible_id is not None:
+            _validate_assigned_tailor(db, task.responsible_id)
+        normalized_tasks.append(
+            schemas.OrderTaskCreate(
+                description=description,
+                status=task.status,
+                responsible_id=task.responsible_id,
+            )
+        )
+
+    if not normalized_tasks:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Debes registrar al menos un trabajo para la orden.",
+        )
+
     order_data = order_in.model_dump()
+    order_data["tasks"] = [task.model_dump() for task in normalized_tasks]
     if not order_data.get("customer_name"):
         order_data["customer_name"] = customer.full_name
     if not order_data.get("customer_document"):

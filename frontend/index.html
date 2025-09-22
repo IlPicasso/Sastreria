@@ -298,6 +298,15 @@
                 <textarea id="newOrderNotes" rows="2" placeholder="Detalles adicionales"></textarea>
               </div>
               <div class="form-row">
+                <label>Trabajos a realizar</label>
+                <p class="muted small">
+                  Agrega cada uno de los trabajos que realizará la sastrería. Debes registrar al menos un
+                  trabajo.
+                </p>
+                <div id="newOrderTasksList" class="measurement-list"></div>
+                <button type="button" id="addOrderTaskButton" class="secondary">Agregar trabajo</button>
+              </div>
+              <div class="form-row">
                 <label for="assignTailor">Asignar a sastre</label>
                 <select id="assignTailor">
                   <option value="">Sin asignar</option>

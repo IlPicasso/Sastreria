@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
@@ -110,6 +112,11 @@ class OrderBase(BaseModel):
 
 class OrderCreate(OrderBase):
     origin_branch: Establishment
+    tasks: List[OrderTaskCreate] = Field(
+        ...,
+        min_length=1,
+        description="Listado de trabajos que se realizarán para completar la orden.",
+    )
 
 
 class OrderUpdate(BaseModel):
@@ -156,13 +163,14 @@ class OrderTaskBase(BaseModel):
 
 class OrderTaskCreate(OrderTaskBase):
     status: OrderTaskStatus = OrderTaskStatus.PENDING
-    responsible_id: Optional[int] = None
+    responsible_id: Optional[int] = Field(default=None, ge=1)
 
 
 class OrderTaskUpdate(BaseModel):
     description: Optional[str] = Field(default=None, min_length=1, max_length=255)
     status: Optional[OrderTaskStatus] = None
-    responsible_id: Optional[int] = None
+    responsible_id: Optional[int] = Field(default=None, ge=1)
+
 
 
 class OrderTaskRead(OrderTaskBase):

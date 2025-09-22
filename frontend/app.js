@@ -133,6 +133,8 @@ const orderPaginationInfo = document.getElementById('orderPaginationInfo');
 const orderSearchInput = document.getElementById('orderSearchInput');
 const measurementsList = document.getElementById('measurementsList');
 const addMeasurementButton = document.getElementById('addMeasurementButton');
+const newOrderTasksList = document.getElementById('newOrderTasksList');
+const addOrderTaskButton = document.getElementById('addOrderTaskButton');
 const statusSelect = document.getElementById('newOrderStatus');
 const assignTailorSelect = document.getElementById('assignTailor');
 const newOrderInvoiceInput = document.getElementById('newOrderInvoice');
@@ -889,6 +891,7 @@ function populateCustomerSelect(selectElement, selectedId) {
 }
 
 let measurementRowIdCounter = 0;
+let newOrderTaskRowIdCounter = 0;
 
 function createMeasurementRowElement(data = { nombre: '', valor: '' }, onRemove) {
   const row = document.createElement('div');
@@ -967,6 +970,123 @@ function ensureMeasurementRow() {
 
 if (addMeasurementButton) {
   addMeasurementButton.addEventListener('click', () => addMeasurementRow());
+}
+
+function createOrderTaskRowElement(data = { description: '', responsible_id: '' }) {
+  const row = document.createElement('div');
+  row.className = 'measurement-row order-task-input-row';
+
+  newOrderTaskRowIdCounter += 1;
+  const rowId = `new-order-task-${newOrderTaskRowIdCounter}`;
+  const descriptionId = `${rowId}-description`;
+  const responsibleId = `${rowId}-responsible`;
+
+  const descriptionField = document.createElement('div');
+  descriptionField.className = 'measurement-field';
+
+  const descriptionLabel = document.createElement('label');
+  descriptionLabel.className = 'sr-only';
+  descriptionLabel.setAttribute('for', descriptionId);
+  descriptionLabel.textContent = 'Descripción del trabajo';
+
+  const descriptionInput = document.createElement('input');
+  descriptionInput.type = 'text';
+  descriptionInput.id = descriptionId;
+  descriptionInput.placeholder = 'Ej. Ajustar bastilla';
+  descriptionInput.value = data.description || '';
+  descriptionInput.dataset.field = 'description';
+
+  descriptionField.appendChild(descriptionLabel);
+  descriptionField.appendChild(descriptionInput);
+
+  const responsibleField = document.createElement('div');
+  responsibleField.className = 'measurement-field';
+
+  const responsibleLabel = document.createElement('label');
+  responsibleLabel.className = 'sr-only';
+  responsibleLabel.setAttribute('for', responsibleId);
+  responsibleLabel.textContent = 'Responsable';
+
+  const responsibleSelect = document.createElement('select');
+  responsibleSelect.id = responsibleId;
+  responsibleSelect.dataset.field = 'responsible';
+
+  const selectedResponsible =
+    data.responsible_id !== undefined && data.responsible_id !== null
+      ? String(data.responsible_id)
+      : '';
+  populateTailorSelect(responsibleSelect, selectedResponsible);
+
+  responsibleField.appendChild(responsibleLabel);
+  responsibleField.appendChild(responsibleSelect);
+
+  const removeButton = document.createElement('button');
+  removeButton.type = 'button';
+  removeButton.className = 'danger ghost';
+  removeButton.textContent = 'Eliminar';
+  removeButton.addEventListener('click', () => {
+    row.remove();
+    ensureNewOrderTaskRow();
+  });
+
+  row.appendChild(descriptionField);
+  row.appendChild(responsibleField);
+  row.appendChild(removeButton);
+
+  return row;
+}
+
+function addNewOrderTaskRow(data = { description: '', responsible_id: '' }) {
+  if (!newOrderTasksList) return;
+  const row = createOrderTaskRowElement(data);
+  newOrderTasksList.appendChild(row);
+}
+
+function ensureNewOrderTaskRow() {
+  if (newOrderTasksList && newOrderTasksList.children.length === 0) {
+    addNewOrderTaskRow();
+  }
+}
+
+function populateNewOrderTaskResponsibles() {
+  if (!newOrderTasksList) return;
+  newOrderTasksList.querySelectorAll('select[data-field="responsible"]').forEach((select) => {
+    const currentValue = select.value || '';
+    populateTailorSelect(select, currentValue);
+  });
+}
+
+function collectNewOrderTasks() {
+  if (!newOrderTasksList) {
+    return { tasks: [], hasEmptyDescription: false, firstEmptyInput: null };
+  }
+  const rows = Array.from(newOrderTasksList.children);
+  const tasks = [];
+  let hasEmptyDescription = false;
+  let firstEmptyInput = null;
+
+  rows.forEach((row) => {
+    const descriptionInput = row.querySelector('input[data-field="description"]');
+    const responsibleSelect = row.querySelector('select[data-field="responsible"]');
+    if (!descriptionInput) return;
+    const description = descriptionInput.value.trim();
+    if (!description) {
+      if (!firstEmptyInput) {
+        firstEmptyInput = descriptionInput;
+      }
+      hasEmptyDescription = true;
+      return;
+    }
+    const responsibleValue = responsibleSelect?.value ?? '';
+    const responsibleId = responsibleValue ? Number(responsibleValue) : null;
+    tasks.push({ description, responsible_id: responsibleId });
+  });
+
+  return { tasks, hasEmptyDescription, firstEmptyInput };
+}
+
+if (addOrderTaskButton) {
+  addOrderTaskButton.addEventListener('click', () => addNewOrderTaskRow());
 }
 
 function addMeasurementRowToList(listElement, data = { nombre: '', valor: '' }) {
@@ -1072,6 +1192,10 @@ function resetCreateOrderForm() {
   if (contactInput) contactInput.value = '';
   measurementsList.innerHTML = '';
   addMeasurementRow();
+  if (newOrderTasksList) {
+    newOrderTasksList.innerHTML = '';
+    addNewOrderTaskRow();
+  }
   renderCustomerMeasurementOptions(null);
 }
 
@@ -1321,6 +1445,7 @@ async function loadTailors() {
   }
   populateTailorSelect(assignTailorSelect);
   populateTailorSelect(orderTaskResponsibleSelect);
+  populateNewOrderTaskResponsibles();
   if (orderDetailTailorSelect) {
     const selectedValue =
       orderDetailTailorSelect.value ||
@@ -2512,6 +2637,7 @@ async function createOrder(event) {
   const invoiceNumber = newOrderInvoiceInput?.value.trim() || '';
   const originBranch = newOrderOriginSelect?.value || '';
   const measurements = collectMeasurements();
+  const { tasks: orderTasks, hasEmptyDescription, firstEmptyInput } = collectNewOrderTasks();
 
   if (!selectedCustomerId) {
     showToast('Selecciona un cliente para registrar la orden.', 'error');
@@ -2520,6 +2646,18 @@ async function createOrder(event) {
 
   if (!originBranch) {
     showToast('Selecciona el establecimiento remitente.', 'error');
+    return;
+  }
+
+  if (hasEmptyDescription) {
+    showToast('Completa o elimina los trabajos sin descripción.', 'error');
+    firstEmptyInput?.focus();
+    return;
+  }
+
+  if (!orderTasks.length) {
+    showToast('Agrega al menos un trabajo a realizar para la orden.', 'error');
+    firstEmptyInput?.focus();
     return;
   }
 
@@ -2543,6 +2681,7 @@ async function createOrder(event) {
         delivery_date: newOrderDeliveryDate ? newOrderDeliveryDate : null,
         invoice_number: invoiceNumber || null,
         origin_branch: originBranch,
+        tasks: orderTasks,
       },
     });
     delete state.customerOrdersCache[String(selectedCustomerId)];
@@ -2587,6 +2726,7 @@ if (orderCustomerSelect) {
 
 populateEstablishmentSelect(newOrderOriginSelect);
 populateEstablishmentSelect(orderDetailOriginSelect);
+ensureNewOrderTaskRow();
 
 function parseDateValue(value) {
   if (!value) {

@@ -307,6 +307,23 @@ def create_order(db: Session, order_in: schemas.OrderCreate) -> models.Order:
         origin_branch=order_in.origin_branch,
     )
     db.add(db_order)
+    db.flush()
+
+    tasks = getattr(order_in, "tasks", [])
+    for task in tasks:
+        if not isinstance(task, schemas.OrderTaskCreate):
+            task = schemas.OrderTaskCreate.model_validate(task)
+        description = task.description.strip()
+        if not description:
+            description = task.description
+        db_task = models.OrderTask(
+            order_id=db_order.id,
+            description=description,
+            status=task.status,
+            responsible_id=task.responsible_id,
+        )
+        db.add(db_task)
+
     db.commit()
     db.refresh(db_order)
     return db_order
@@ -413,9 +430,12 @@ def list_order_tasks(db: Session, *, order_id: int) -> List[models.OrderTask]:
 def create_order_task(
     db: Session, *, order_id: int, task_in: schemas.OrderTaskCreate
 ) -> models.OrderTask:
+    description = task_in.description.strip()
+    if not description:
+        description = task_in.description
     db_task = models.OrderTask(
         order_id=order_id,
-        description=task_in.description,
+        description=description,
         status=task_in.status,
         responsible_id=task_in.responsible_id,
     )
@@ -444,7 +464,11 @@ def update_order_task(
 ) -> models.OrderTask:
     data = task_update.model_dump(exclude_unset=True)
     if "description" in data:
-        db_task.description = data["description"]
+        description = data["description"].strip()
+        if not description:
+            description = data["description"]
+        db_task.description = description
+
     if "status" in data:
         db_task.status = data["status"]
     if "responsible_id" in data:
