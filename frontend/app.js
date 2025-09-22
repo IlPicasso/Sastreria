@@ -2,6 +2,8 @@ const API_BASE_URL = window.API_BASE_URL || 'http://localhost:8000';
 const DEFAULT_PAGE_SIZE = 10;
 const PAGE_SIZE_OPTIONS = [10, 15, 20, 25, 30, 35, 40, 45, 50];
 const ESTABLISHMENTS = ['Urdesa', 'Batan', 'Indie'];
+const ORDER_TASK_STATUS_PENDING = 'pendiente';
+const ORDER_TASK_STATUS_COMPLETED = 'completado';
 
 
 const state = {
@@ -26,6 +28,10 @@ const state = {
   auditLogs: [],
   selectedCustomerId: null,
   selectedOrderId: null,
+  orderTasks: [],
+  orderTasksOrderId: null,
+  orderTasksLoading: false,
+  orderTasksRequestId: 0,
   customerRequestId: 0,
   orderRequestId: 0,
   customerOptionsRequestId: 0,
@@ -144,6 +150,11 @@ const orderDetailOriginSelect = document.getElementById('orderDetailOrigin');
 const orderDetailDeliveryDateInput = document.getElementById('orderDetailDeliveryDate');
 const orderDetailNotesTextarea = document.getElementById('orderDetailNotes');
 const orderDetailMeasurementsContainer = document.getElementById('orderDetailMeasurements');
+const orderTasksList = document.getElementById('orderTasksList');
+const orderTaskForm = document.getElementById('orderTaskForm');
+const orderTaskDescriptionInput = document.getElementById('orderTaskDescription');
+const orderTaskResponsibleSelect = document.getElementById('orderTaskResponsible');
+const orderTasksPermissionsNotice = document.getElementById('orderTasksPermissionsNotice');
 const closeOrderDetailButton = document.getElementById('closeOrderDetailButton');
 const toastElement = document.getElementById('toast');
 const currentYearElement = document.getElementById('currentYear');
@@ -425,6 +436,263 @@ function formatDeliveryDateDisplay(order) {
     }
   }
   return dateLabel;
+}
+
+function canModifyOrderTasks() {
+  const role = state.user?.role;
+  return role === 'administrador' || role === 'sastre';
+}
+
+function sortOrderTasks(tasks) {
+  return [...tasks].sort((a, b) => {
+    const aTime = new Date(a?.created_at ?? 0).getTime();
+    const bTime = new Date(b?.created_at ?? 0).getTime();
+    const aInvalid = Number.isNaN(aTime);
+    const bInvalid = Number.isNaN(bTime);
+    if (aInvalid && bInvalid) {
+      return (a?.id ?? 0) - (b?.id ?? 0);
+    }
+    if (aInvalid) return 1;
+    if (bInvalid) return -1;
+    if (aTime === bTime) {
+      return (a?.id ?? 0) - (b?.id ?? 0);
+    }
+    return aTime - bTime;
+  });
+}
+
+function resetOrderTasksState() {
+  state.orderTasks = [];
+  state.orderTasksOrderId = null;
+  state.orderTasksLoading = false;
+  state.orderTasksRequestId = 0;
+  renderOrderTasks();
+}
+
+function renderOrderTasks() {
+  if (!orderTasksList) return;
+  const selectedOrderId = state.selectedOrderId;
+  const tasksBelongToSelection =
+    selectedOrderId !== null && state.orderTasksOrderId === selectedOrderId;
+  const canModify = canModifyOrderTasks();
+  const shouldShowForm = tasksBelongToSelection && canModify;
+
+  if (orderTaskForm) {
+    orderTaskForm.classList.toggle('hidden', !shouldShowForm);
+  }
+  if (orderTaskDescriptionInput) {
+    orderTaskDescriptionInput.disabled = !canModify;
+  }
+  if (orderTaskResponsibleSelect) {
+    orderTaskResponsibleSelect.disabled = !canModify;
+  }
+  if (orderTasksPermissionsNotice) {
+    const showNotice = tasksBelongToSelection && !canModify;
+    orderTasksPermissionsNotice.classList.toggle('hidden', !showNotice);
+  }
+
+  if (!tasksBelongToSelection) {
+    orderTasksList.classList.add('muted');
+    orderTasksList.textContent =
+      selectedOrderId === null
+        ? 'Selecciona una orden para ver el checklist.'
+        : 'Cargando checklist...';
+    return;
+  }
+
+  if (state.orderTasksLoading) {
+    orderTasksList.classList.add('muted');
+    orderTasksList.textContent = 'Cargando checklist...';
+    return;
+  }
+
+  const tasks = Array.isArray(state.orderTasks) ? state.orderTasks : [];
+  orderTasksList.innerHTML = '';
+  if (!tasks.length) {
+    orderTasksList.classList.add('muted');
+    orderTasksList.textContent = 'No hay tareas registradas.';
+    return;
+  }
+
+  orderTasksList.classList.remove('muted');
+  const list = document.createElement('ul');
+  list.className = 'order-task-list';
+
+  tasks.forEach((task) => {
+    const item = document.createElement('li');
+    item.className = 'order-task-item';
+
+    const label = document.createElement('label');
+    label.className = 'order-task-label';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = task.status === ORDER_TASK_STATUS_COMPLETED;
+    checkbox.disabled = !canModify;
+    checkbox.addEventListener('change', () => handleOrderTaskToggle(task.id, checkbox));
+    label.appendChild(checkbox);
+
+    const description = document.createElement('span');
+    description.className = 'order-task-description';
+    description.textContent = task.description || '';
+    label.appendChild(description);
+
+    item.appendChild(label);
+
+    const meta = document.createElement('div');
+    meta.className = 'order-task-meta';
+
+    const responsible = document.createElement('span');
+    responsible.className = 'order-task-responsible';
+    responsible.textContent = task.responsible?.full_name
+      ? `Responsable: ${task.responsible.full_name}`
+      : 'Responsable: Sin asignar';
+    meta.appendChild(responsible);
+
+    if (task.updated_at) {
+      const updated = document.createElement('span');
+      updated.className = 'order-task-updated';
+      updated.textContent = `Actualizado: ${formatDate(task.updated_at)}`;
+      meta.appendChild(updated);
+    }
+
+    item.appendChild(meta);
+    list.appendChild(item);
+  });
+
+  orderTasksList.appendChild(list);
+}
+
+async function refreshOrderTasks(orderId) {
+  if (!state.token) return;
+  const requestId = Date.now();
+  state.orderTasksRequestId = requestId;
+  state.orderTasksOrderId = orderId;
+  state.orderTasksLoading = true;
+  renderOrderTasks();
+  try {
+    const tasks = await apiFetch(`/orders/${orderId}/tasks`);
+    if (state.orderTasksRequestId !== requestId) {
+      return;
+    }
+    const normalized = Array.isArray(tasks) ? tasks : [];
+    state.orderTasks = sortOrderTasks(normalized);
+  } catch (error) {
+    if (state.orderTasksRequestId === requestId) {
+      state.orderTasks = [];
+      showToast(error.message, 'error');
+    }
+  } finally {
+    if (state.orderTasksRequestId === requestId) {
+      state.orderTasksLoading = false;
+      renderOrderTasks();
+    }
+  }
+}
+
+function applyOrderTaskUpdate(updatedTask) {
+  if (!updatedTask || typeof updatedTask !== 'object') return;
+  if (state.orderTasksOrderId !== updatedTask.order_id) {
+    return;
+  }
+  const tasks = Array.isArray(state.orderTasks) ? [...state.orderTasks] : [];
+  const index = tasks.findIndex((task) => task.id === updatedTask.id);
+  if (index === -1) {
+    tasks.push(updatedTask);
+  } else {
+    tasks[index] = updatedTask;
+  }
+  state.orderTasks = sortOrderTasks(tasks);
+  renderOrderTasks();
+}
+
+async function handleOrderTaskToggle(taskId, checkbox) {
+  if (state.selectedOrderId === null || !checkbox) {
+    return;
+  }
+  if (!canModifyOrderTasks()) {
+    renderOrderTasks();
+    return;
+  }
+  if (state.orderTasksOrderId !== state.selectedOrderId) {
+    checkbox.checked = state.orderTasks.find((task) => task.id === taskId)?.status === ORDER_TASK_STATUS_COMPLETED;
+    checkbox.disabled = !canModifyOrderTasks();
+    return;
+  }
+  const currentTask = state.orderTasks.find((task) => task.id === taskId);
+  const previousStatus = currentTask?.status || ORDER_TASK_STATUS_PENDING;
+  const desiredStatus = checkbox.checked
+    ? ORDER_TASK_STATUS_COMPLETED
+    : ORDER_TASK_STATUS_PENDING;
+  if (desiredStatus === previousStatus) {
+    checkbox.disabled = !canModifyOrderTasks();
+    return;
+  }
+  checkbox.disabled = true;
+  try {
+    const updatedTask = await apiFetch(`/orders/${state.selectedOrderId}/tasks/${taskId}`, {
+      method: 'PATCH',
+      body: { status: desiredStatus },
+    });
+    applyOrderTaskUpdate(updatedTask);
+    showToast('Checklist actualizado.', 'success');
+  } catch (error) {
+    checkbox.checked = previousStatus === ORDER_TASK_STATUS_COMPLETED;
+    showToast(error.message, 'error');
+  } finally {
+    checkbox.disabled = !canModifyOrderTasks();
+  }
+}
+
+async function handleOrderTaskCreate(event) {
+  event.preventDefault();
+  if (state.selectedOrderId === null) {
+    showToast('Selecciona una orden antes de agregar tareas.', 'error');
+    return;
+  }
+  if (state.orderTasksOrderId !== state.selectedOrderId) {
+    showToast('Selecciona una orden antes de agregar tareas.', 'error');
+    return;
+  }
+  if (!canModifyOrderTasks()) {
+    showToast('No tienes permisos para modificar el checklist.', 'error');
+    return;
+  }
+  const descriptionValue = orderTaskDescriptionInput?.value.trim() || '';
+  if (!descriptionValue) {
+    showToast('Ingresa la descripción de la tarea.', 'error');
+    return;
+  }
+  const responsibleValue = orderTaskResponsibleSelect?.value || '';
+  const submitButton = orderTaskForm?.querySelector('button[type="submit"]');
+  if (submitButton) {
+    submitButton.disabled = true;
+  }
+  try {
+    const body = { description: descriptionValue };
+    if (responsibleValue) {
+      body.responsible_id = Number(responsibleValue);
+    }
+    const newTask = await apiFetch(`/orders/${state.selectedOrderId}/tasks`, {
+      method: 'POST',
+      body,
+    });
+    applyOrderTaskUpdate(newTask);
+    if (orderTaskDescriptionInput) {
+      orderTaskDescriptionInput.value = '';
+      orderTaskDescriptionInput.focus();
+    }
+    if (orderTaskResponsibleSelect) {
+      orderTaskResponsibleSelect.value = '';
+    }
+    showToast('Tarea añadida al checklist.', 'success');
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+    }
+  }
 }
 
 async function apiFetch(path, { method = 'GET', body, headers = {}, auth = true } = {}) {
@@ -931,6 +1199,7 @@ function updateUserInfo() {
   } else {
     setActiveDashboardTab(activeDashboardTab);
   }
+  renderOrderTasks();
 }
 
 function showDashboard() {
@@ -1048,6 +1317,7 @@ async function loadTailors() {
     showToast(error.message, 'error');
   }
   populateTailorSelect(assignTailorSelect);
+  populateTailorSelect(orderTaskResponsibleSelect);
   if (orderDetailTailorSelect) {
     const selectedValue =
       orderDetailTailorSelect.value ||
@@ -1279,6 +1549,10 @@ function handleLogout(auto = false) {
   state.auditLogs = [];
   state.selectedCustomerId = null;
   state.selectedOrderId = null;
+  state.orderTasks = [];
+  state.orderTasksOrderId = null;
+  state.orderTasksLoading = false;
+  state.orderTasksRequestId = 0;
   state.customerRequestId = 0;
   state.orderRequestId = 0;
   state.customerOptionsRequestId = 0;
@@ -1290,6 +1564,9 @@ function handleLogout(auto = false) {
   }
   if (assignTailorSelect) {
     populateTailorSelect(assignTailorSelect);
+  }
+  if (orderTaskResponsibleSelect) {
+    populateTailorSelect(orderTaskResponsibleSelect);
   }
   if (orderCustomerSelect) {
     populateCustomerSelect(orderCustomerSelect);
@@ -1351,6 +1628,7 @@ function handleLogout(auto = false) {
   });
   updateNavigationForAuth();
   setActiveView('staff-view');
+  renderOrderTasks();
   if (auto) {
     showToast('La sesión ha expirado, vuelve a iniciar sesión.', 'error');
   }
@@ -1825,6 +2103,10 @@ function populateOrderDetail(order, options = {}) {
   const { skipRender = false, focusOnDetail = true } = options;
 
   state.selectedOrderId = order.id;
+  state.orderTasksOrderId = order.id;
+  state.orderTasksLoading = true;
+  state.orderTasks = [];
+  renderOrderTasks();
   if (orderDetailNumberElement) {
     orderDetailNumberElement.textContent = order.order_number;
   }
@@ -1887,6 +2169,8 @@ function populateOrderDetail(order, options = {}) {
       });
     }
   }
+
+  refreshOrderTasks(order.id);
 }
 
 function clearOrderDetail(options = {}) {
@@ -1911,6 +2195,8 @@ function clearOrderDetail(options = {}) {
     orderDetailMeasurementsContainer.innerHTML = '';
     orderDetailMeasurementsContainer.classList.add('muted');
   }
+
+  resetOrderTasksState();
 
   removeOrderDetailRow();
   orderDetail.classList.add('hidden');
@@ -2090,6 +2376,10 @@ if (closeCreateCustomerButton) {
 
 if (updateOrderForm) {
   updateOrderForm.addEventListener('submit', handleOrderUpdate);
+}
+
+if (orderTaskForm) {
+  orderTaskForm.addEventListener('submit', handleOrderTaskCreate);
 }
 
 if (closeOrderDetailButton) {
