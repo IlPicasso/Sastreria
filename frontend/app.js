@@ -2,6 +2,8 @@ const API_BASE_URL = window.API_BASE_URL || 'http://localhost:8000';
 const DEFAULT_PAGE_SIZE = 10;
 const PAGE_SIZE_OPTIONS = [10, 15, 20, 25, 30, 35, 40, 45, 50];
 const ESTABLISHMENTS = ['Urdesa', 'Batan', 'Indie'];
+const ORDER_TASK_STATUS_PENDING = 'pendiente';
+const ORDER_TASK_STATUS_COMPLETED = 'completado';
 
 
 const state = {
@@ -26,6 +28,10 @@ const state = {
   auditLogs: [],
   selectedCustomerId: null,
   selectedOrderId: null,
+  orderTasks: [],
+  orderTasksOrderId: null,
+  orderTasksLoading: false,
+  orderTasksRequestId: 0,
   customerRequestId: 0,
   orderRequestId: 0,
   customerOptionsRequestId: 0,
@@ -122,6 +128,8 @@ const orderPaginationInfo = document.getElementById('orderPaginationInfo');
 const orderSearchInput = document.getElementById('orderSearchInput');
 const measurementsList = document.getElementById('measurementsList');
 const addMeasurementButton = document.getElementById('addMeasurementButton');
+const newOrderTasksList = document.getElementById('newOrderTasksList');
+const addOrderTaskButton = document.getElementById('addOrderTaskButton');
 const statusSelect = document.getElementById('newOrderStatus');
 const assignTailorSelect = document.getElementById('assignTailor');
 const newOrderInvoiceInput = document.getElementById('newOrderInvoice');
@@ -142,6 +150,10 @@ const orderDetailOriginSelect = document.getElementById('orderDetailOrigin');
 const orderDetailDeliveryDateInput = document.getElementById('orderDetailDeliveryDate');
 const orderDetailNotesTextarea = document.getElementById('orderDetailNotes');
 const orderDetailMeasurementsContainer = document.getElementById('orderDetailMeasurements');
+const orderTasksList = document.getElementById('orderTasksList');
+const orderTaskForm = document.getElementById('orderTaskForm');
+const orderTaskResponsibleSelect = document.getElementById('orderTaskResponsible');
+const orderTasksPermissionsNotice = document.getElementById('orderTasksPermissionsNotice');
 const closeOrderDetailButton = document.getElementById('closeOrderDetailButton');
 const toastElement = document.getElementById('toast');
 const currentYearElement = document.getElementById('currentYear');
@@ -387,6 +399,256 @@ function formatDeliveryDateDisplay(order) {
   return dateLabel;
 }
 
+function canModifyOrderTasks() {
+  const role = state.user?.role;
+  return role === 'administrador' || role === 'sastre';
+}
+
+function sortOrderTasks(tasks) {
+  return [...tasks].sort((a, b) => {
+    const aTime = new Date(a?.created_at ?? 0).getTime();
+    const bTime = new Date(b?.created_at ?? 0).getTime();
+    const aInvalid = Number.isNaN(aTime);
+    const bInvalid = Number.isNaN(bTime);
+    if (aInvalid && bInvalid) {
+      return (a?.id ?? 0) - (b?.id ?? 0);
+    }
+    if (aInvalid) return 1;
+    if (bInvalid) return -1;
+    if (aTime === bTime) {
+      return (a?.id ?? 0) - (b?.id ?? 0);
+    }
+    return aTime - bTime;
+  });
+}
+
+function resetOrderTasksState() {
+  state.orderTasks = [];
+  state.orderTasksOrderId = null;
+  state.orderTasksLoading = false;
+  state.orderTasksRequestId = 0;
+  renderOrderTasks();
+}
+
+function renderOrderTasks() {
+  if (!orderTasksList) return;
+  const selectedOrderId = state.selectedOrderId;
+  const tasksBelongToSelection =
+    selectedOrderId !== null && state.orderTasksOrderId === selectedOrderId;
+  const canModify = canModifyOrderTasks();
+  const shouldShowForm = tasksBelongToSelection && canModify;
+
+  if (orderTaskForm) {
+    orderTaskForm.classList.toggle('hidden', !shouldShowForm);
+  }
+  if (orderTaskResponsibleSelect) {
+    orderTaskResponsibleSelect.disabled = !canModify;
+  }
+  if (orderTasksPermissionsNotice) {
+    const showNotice = tasksBelongToSelection && !canModify;
+    orderTasksPermissionsNotice.classList.toggle('hidden', !showNotice);
+  }
+
+  if (!tasksBelongToSelection) {
+    orderTasksList.classList.add('muted');
+    orderTasksList.textContent =
+      selectedOrderId === null
+        ? 'Selecciona una orden para ver el checklist.'
+        : 'Cargando checklist...';
+    return;
+  }
+
+  if (state.orderTasksLoading) {
+    orderTasksList.classList.add('muted');
+    orderTasksList.textContent = 'Cargando checklist...';
+    return;
+  }
+
+  const tasks = Array.isArray(state.orderTasks) ? state.orderTasks : [];
+  orderTasksList.innerHTML = '';
+  if (!tasks.length) {
+    orderTasksList.classList.add('muted');
+    orderTasksList.textContent = 'No hay tareas registradas.';
+    return;
+  }
+
+  orderTasksList.classList.remove('muted');
+  const list = document.createElement('ul');
+  list.className = 'order-task-list';
+
+  tasks.forEach((task, index) => {
+    const item = document.createElement('li');
+    item.className = 'order-task-item';
+
+    const label = document.createElement('label');
+    label.className = 'order-task-label';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = task.status === ORDER_TASK_STATUS_COMPLETED;
+    checkbox.disabled = !canModify;
+    checkbox.addEventListener('change', () => handleOrderTaskToggle(task.id, checkbox));
+    label.appendChild(checkbox);
+
+    const description = document.createElement('span');
+    description.className = 'order-task-description';
+    const rawDescription = typeof task.description === 'string' ? task.description.trim() : '';
+    const fallbackLabel = `Trabajo #${index + 1}`;
+    const displayDescription = rawDescription || fallbackLabel;
+    description.textContent = displayDescription;
+    description.title = displayDescription;
+    label.appendChild(description);
+
+    item.appendChild(label);
+
+    const meta = document.createElement('div');
+    meta.className = 'order-task-meta';
+
+    const responsible = document.createElement('span');
+    responsible.className = 'order-task-responsible';
+    responsible.textContent = task.responsible?.full_name
+      ? `Responsable: ${task.responsible.full_name}`
+      : 'Responsable: Sin asignar';
+    meta.appendChild(responsible);
+
+    if (task.updated_at) {
+      const updated = document.createElement('span');
+      updated.className = 'order-task-updated';
+      updated.textContent = `Actualizado: ${formatDate(task.updated_at)}`;
+      meta.appendChild(updated);
+    }
+
+    item.appendChild(meta);
+    list.appendChild(item);
+  });
+
+  orderTasksList.appendChild(list);
+}
+
+async function refreshOrderTasks(orderId) {
+  if (!state.token) return;
+  const requestId = Date.now();
+  state.orderTasksRequestId = requestId;
+  state.orderTasksOrderId = orderId;
+  state.orderTasksLoading = true;
+  renderOrderTasks();
+  try {
+    const tasks = await apiFetch(`/orders/${orderId}/tasks`);
+    if (state.orderTasksRequestId !== requestId) {
+      return;
+    }
+    const normalized = Array.isArray(tasks) ? tasks : [];
+    state.orderTasks = sortOrderTasks(normalized);
+  } catch (error) {
+    if (state.orderTasksRequestId === requestId) {
+      state.orderTasks = [];
+      showToast(error.message, 'error');
+    }
+  } finally {
+    if (state.orderTasksRequestId === requestId) {
+      state.orderTasksLoading = false;
+      renderOrderTasks();
+    }
+  }
+}
+
+function applyOrderTaskUpdate(updatedTask) {
+  if (!updatedTask || typeof updatedTask !== 'object') return;
+  if (state.orderTasksOrderId !== updatedTask.order_id) {
+    return;
+  }
+  const tasks = Array.isArray(state.orderTasks) ? [...state.orderTasks] : [];
+  const index = tasks.findIndex((task) => task.id === updatedTask.id);
+  if (index === -1) {
+    tasks.push(updatedTask);
+  } else {
+    tasks[index] = updatedTask;
+  }
+  state.orderTasks = sortOrderTasks(tasks);
+  renderOrderTasks();
+}
+
+async function handleOrderTaskToggle(taskId, checkbox) {
+  if (state.selectedOrderId === null || !checkbox) {
+    return;
+  }
+  if (!canModifyOrderTasks()) {
+    renderOrderTasks();
+    return;
+  }
+  if (state.orderTasksOrderId !== state.selectedOrderId) {
+    checkbox.checked = state.orderTasks.find((task) => task.id === taskId)?.status === ORDER_TASK_STATUS_COMPLETED;
+    checkbox.disabled = !canModifyOrderTasks();
+    return;
+  }
+  const currentTask = state.orderTasks.find((task) => task.id === taskId);
+  const previousStatus = currentTask?.status || ORDER_TASK_STATUS_PENDING;
+  const desiredStatus = checkbox.checked
+    ? ORDER_TASK_STATUS_COMPLETED
+    : ORDER_TASK_STATUS_PENDING;
+  if (desiredStatus === previousStatus) {
+    checkbox.disabled = !canModifyOrderTasks();
+    return;
+  }
+  checkbox.disabled = true;
+  try {
+    const updatedTask = await apiFetch(`/orders/${state.selectedOrderId}/tasks/${taskId}`, {
+      method: 'PATCH',
+      body: { status: desiredStatus },
+    });
+    applyOrderTaskUpdate(updatedTask);
+    showToast('Checklist actualizado.', 'success');
+  } catch (error) {
+    checkbox.checked = previousStatus === ORDER_TASK_STATUS_COMPLETED;
+    showToast(error.message, 'error');
+  } finally {
+    checkbox.disabled = !canModifyOrderTasks();
+  }
+}
+
+async function handleOrderTaskCreate(event) {
+  event.preventDefault();
+  if (state.selectedOrderId === null) {
+    showToast('Selecciona una orden antes de agregar tareas.', 'error');
+    return;
+  }
+  if (state.orderTasksOrderId !== state.selectedOrderId) {
+    showToast('Selecciona una orden antes de agregar tareas.', 'error');
+    return;
+  }
+  if (!canModifyOrderTasks()) {
+    showToast('No tienes permisos para modificar el checklist.', 'error');
+    return;
+  }
+  const responsibleValue = orderTaskResponsibleSelect?.value || '';
+  const submitButton = orderTaskForm?.querySelector('button[type="submit"]');
+  if (submitButton) {
+    submitButton.disabled = true;
+  }
+  try {
+    const body = {};
+    if (responsibleValue) {
+      body.responsible_id = Number(responsibleValue);
+    }
+    const newTask = await apiFetch(`/orders/${state.selectedOrderId}/tasks`, {
+      method: 'POST',
+      body,
+    });
+    applyOrderTaskUpdate(newTask);
+    if (orderTaskResponsibleSelect) {
+      orderTaskResponsibleSelect.value = '';
+      orderTaskResponsibleSelect.focus();
+    }
+    showToast('Tarea añadida al checklist.', 'success');
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+    }
+  }
+}
+
 async function apiFetch(path, { method = 'GET', body, headers = {}, auth = true } = {}) {
   const options = { method, headers: { ...headers } };
   if (body !== undefined) {
@@ -414,7 +676,34 @@ async function apiFetch(path, { method = 'GET', body, headers = {}, auth = true 
     if (response.status === 401 && state.token) {
       handleLogout(true);
     }
-    const message = data?.detail || data?.message || (typeof data === 'string' ? data : 'Error en la solicitud');
+    let message = 'Error en la solicitud';
+    if (data) {
+      if (Array.isArray(data.detail)) {
+        message = data.detail
+          .map((item) => {
+            if (item?.msg) return item.msg;
+            if (item?.detail) return item.detail;
+            if (item?.message) return item.message;
+            if (typeof item === 'string') return item;
+            try {
+              return JSON.stringify(item);
+            } catch (error) {
+              return 'Error en la solicitud';
+            }
+          })
+          .join(' ');
+      } else if (typeof data.detail === 'string') {
+        message = data.detail;
+      } else if (data.detail?.msg) {
+        message = data.detail.msg;
+      } else if (data.detail?.message) {
+        message = data.detail.message;
+      } else if (typeof data.message === 'string') {
+        message = data.message;
+      } else if (typeof data === 'string') {
+        message = data;
+      }
+    }
     throw new Error(message || 'Error en la solicitud');
   }
 
@@ -578,6 +867,7 @@ function populateCustomerSelect(selectElement, selectedId) {
 }
 
 let measurementRowIdCounter = 0;
+let newOrderTaskRowIdCounter = 0;
 
 function createMeasurementRowElement(data = { nombre: '', valor: '' }, onRemove) {
   const row = document.createElement('div');
@@ -656,6 +946,122 @@ function ensureMeasurementRow() {
 
 if (addMeasurementButton) {
   addMeasurementButton.addEventListener('click', () => addMeasurementRow());
+}
+
+function createOrderTaskRowElement(data = { responsible_id: '' }) {
+  const row = document.createElement('div');
+  row.className = 'measurement-row order-task-input-row';
+  row.dataset.role = 'order-task-row';
+
+  newOrderTaskRowIdCounter += 1;
+  const rowId = `new-order-task-${newOrderTaskRowIdCounter}`;
+  const responsibleId = `${rowId}-responsible`;
+
+  const labelField = document.createElement('div');
+  labelField.className = 'measurement-field order-task-label-field';
+
+  const labelElement = document.createElement('span');
+  labelElement.className = 'order-task-input-label';
+  labelElement.id = `${rowId}-label`;
+  labelElement.dataset.role = 'task-label';
+  labelElement.textContent = 'Trabajo #1';
+
+  labelField.appendChild(labelElement);
+
+  const responsibleField = document.createElement('div');
+  responsibleField.className = 'measurement-field';
+
+  const responsibleLabel = document.createElement('label');
+  responsibleLabel.className = 'sr-only';
+  responsibleLabel.setAttribute('for', responsibleId);
+  responsibleLabel.textContent = 'Responsable';
+
+  const responsibleSelect = document.createElement('select');
+  responsibleSelect.id = responsibleId;
+  responsibleSelect.dataset.field = 'responsible';
+
+  const selectedResponsible =
+    data.responsible_id !== undefined && data.responsible_id !== null
+      ? String(data.responsible_id)
+      : '';
+  populateTailorSelect(responsibleSelect, selectedResponsible);
+
+  responsibleField.appendChild(responsibleLabel);
+  responsibleField.appendChild(responsibleSelect);
+
+  const removeButton = document.createElement('button');
+  removeButton.type = 'button';
+  removeButton.className = 'danger ghost';
+  removeButton.textContent = 'Eliminar';
+  removeButton.addEventListener('click', () => {
+    row.remove();
+    updateNewOrderTaskLabels();
+    ensureNewOrderTaskRow();
+  });
+
+  row.appendChild(labelField);
+  row.appendChild(responsibleField);
+  row.appendChild(removeButton);
+
+  return row;
+}
+
+function addNewOrderTaskRow(data = { responsible_id: '' }) {
+  if (!newOrderTasksList) return;
+  const row = createOrderTaskRowElement(data);
+  newOrderTasksList.appendChild(row);
+  updateNewOrderTaskLabels();
+}
+
+function ensureNewOrderTaskRow() {
+  if (newOrderTasksList && newOrderTasksList.children.length === 0) {
+    addNewOrderTaskRow();
+  }
+  updateNewOrderTaskLabels();
+}
+
+function populateNewOrderTaskResponsibles() {
+  if (!newOrderTasksList) return;
+  newOrderTasksList.querySelectorAll('select[data-field="responsible"]').forEach((select) => {
+    const currentValue = select.value || '';
+    populateTailorSelect(select, currentValue);
+  });
+  updateNewOrderTaskLabels();
+}
+
+function collectNewOrderTasks() {
+  if (!newOrderTasksList) {
+    return [];
+  }
+  const rows = Array.from(newOrderTasksList.children);
+  const tasks = [];
+
+  rows.forEach((row) => {
+    const responsibleSelect = row.querySelector('select[data-field="responsible"]');
+    if (!responsibleSelect) return;
+    const responsibleValue = responsibleSelect.value || '';
+    if (!responsibleValue) {
+      return;
+    }
+    tasks.push({ responsible_id: Number(responsibleValue) });
+  });
+
+  return tasks;
+}
+
+function updateNewOrderTaskLabels() {
+  if (!newOrderTasksList) return;
+  const rows = Array.from(newOrderTasksList.children);
+  rows.forEach((row, index) => {
+    const label = row.querySelector('[data-role="task-label"]');
+    if (label) {
+      label.textContent = `Trabajo #${index + 1}`;
+    }
+  });
+}
+
+if (addOrderTaskButton) {
+  addOrderTaskButton.addEventListener('click', () => addNewOrderTaskRow());
 }
 
 function addMeasurementRowToList(listElement, data = { nombre: '', valor: '' }) {
@@ -761,6 +1167,10 @@ function resetCreateOrderForm() {
   if (contactInput) contactInput.value = '';
   measurementsList.innerHTML = '';
   addMeasurementRow();
+  if (newOrderTasksList) {
+    newOrderTasksList.innerHTML = '';
+    addNewOrderTaskRow();
+  }
   renderCustomerMeasurementOptions(null);
 }
 
@@ -875,6 +1285,7 @@ function updateUserInfo() {
   if (!isAdmin && activeDashboardTab === 'auditLogPanel') {
     setActiveDashboardTab('orderListPanel');
   }
+  renderOrderTasks();
 }
 
 function showDashboard() {
@@ -992,6 +1403,8 @@ async function loadTailors() {
     showToast(error.message, 'error');
   }
   populateTailorSelect(assignTailorSelect);
+  populateTailorSelect(orderTaskResponsibleSelect);
+  populateNewOrderTaskResponsibles();
   if (orderDetailTailorSelect) {
     const selectedValue =
       orderDetailTailorSelect.value ||
@@ -1223,6 +1636,10 @@ function handleLogout(auto = false) {
   state.auditLogs = [];
   state.selectedCustomerId = null;
   state.selectedOrderId = null;
+  state.orderTasks = [];
+  state.orderTasksOrderId = null;
+  state.orderTasksLoading = false;
+  state.orderTasksRequestId = 0;
   state.customerRequestId = 0;
   state.orderRequestId = 0;
   state.customerOptionsRequestId = 0;
@@ -1234,6 +1651,9 @@ function handleLogout(auto = false) {
   }
   if (assignTailorSelect) {
     populateTailorSelect(assignTailorSelect);
+  }
+  if (orderTaskResponsibleSelect) {
+    populateTailorSelect(orderTaskResponsibleSelect);
   }
   if (orderCustomerSelect) {
     populateCustomerSelect(orderCustomerSelect);
@@ -1295,6 +1715,7 @@ function handleLogout(auto = false) {
   });
   updateNavigationForAuth();
   setActiveView('staff-view');
+  renderOrderTasks();
   if (auto) {
     showToast('La sesión ha expirado, vuelve a iniciar sesión.', 'error');
   }
@@ -1769,6 +2190,10 @@ function populateOrderDetail(order, options = {}) {
   const { skipRender = false, focusOnDetail = true } = options;
 
   state.selectedOrderId = order.id;
+  state.orderTasksOrderId = order.id;
+  state.orderTasksLoading = true;
+  state.orderTasks = [];
+  renderOrderTasks();
   if (orderDetailNumberElement) {
     orderDetailNumberElement.textContent = order.order_number;
   }
@@ -1831,6 +2256,8 @@ function populateOrderDetail(order, options = {}) {
       });
     }
   }
+
+  refreshOrderTasks(order.id);
 }
 
 function clearOrderDetail(options = {}) {
@@ -1855,6 +2282,8 @@ function clearOrderDetail(options = {}) {
     orderDetailMeasurementsContainer.innerHTML = '';
     orderDetailMeasurementsContainer.classList.add('muted');
   }
+
+  resetOrderTasksState();
 
   removeOrderDetailRow();
   orderDetail.classList.add('hidden');
@@ -1882,7 +2311,8 @@ async function handleOrderUpdate(event) {
   }
   const currentOrder = state.orders.find((order) => order.id === state.selectedOrderId);
   const affectedCustomerId = currentOrder?.customer_id;
-  const deliveryDateValue = orderDetailDeliveryDateInput?.value || '';
+  const deliveryDateValueRaw = orderDetailDeliveryDateInput?.value || '';
+  const deliveryDateValue = normalizeDateForApi(deliveryDateValueRaw);
   const invoiceValue = invoiceValueRaw || null;
   try {
     await apiFetch(`/orders/${state.selectedOrderId}`, {
@@ -2036,6 +2466,10 @@ if (updateOrderForm) {
   updateOrderForm.addEventListener('submit', handleOrderUpdate);
 }
 
+if (orderTaskForm) {
+  orderTaskForm.addEventListener('submit', handleOrderTaskCreate);
+}
+
 if (closeOrderDetailButton) {
   closeOrderDetailButton.addEventListener('click', () => {
     clearOrderDetail();
@@ -2145,12 +2579,14 @@ async function createOrder(event) {
   const newCustomerDocument = document.getElementById('newCustomerDocument').value.trim();
   const newCustomerContact = document.getElementById('newCustomerContact').value.trim();
   const newOrderStatus = document.getElementById('newOrderStatus').value;
-  const newOrderDeliveryDate = newOrderDeliveryDateInput?.value || '';
+  const newOrderDeliveryDateRaw = newOrderDeliveryDateInput?.value || '';
+  const newOrderDeliveryDate = normalizeDateForApi(newOrderDeliveryDateRaw);
   const newOrderNotes = document.getElementById('newOrderNotes').value.trim();
   const assignedTailorId = assignTailorSelect.value ? Number(assignTailorSelect.value) : null;
   const invoiceNumber = newOrderInvoiceInput?.value.trim() || '';
   const originBranch = newOrderOriginSelect?.value || '';
   const measurements = collectMeasurements();
+  const orderTasks = collectNewOrderTasks();
 
   if (!selectedCustomerId) {
     showToast('Selecciona un cliente para registrar la orden.', 'error');
@@ -2180,6 +2616,7 @@ async function createOrder(event) {
         delivery_date: newOrderDeliveryDate ? newOrderDeliveryDate : null,
         invoice_number: invoiceNumber || null,
         origin_branch: originBranch,
+        tasks: orderTasks,
       },
     });
     delete state.customerOrdersCache[String(selectedCustomerId)];
@@ -2224,6 +2661,7 @@ if (orderCustomerSelect) {
 
 populateEstablishmentSelect(newOrderOriginSelect);
 populateEstablishmentSelect(orderDetailOriginSelect);
+ensureNewOrderTaskRow();
 
 function parseDateValue(value) {
   if (!value) {
@@ -2234,6 +2672,43 @@ function parseDateValue(value) {
     return null;
   }
   return parsed;
+}
+
+function formatDateForApi(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeDateForApi(value) {
+  if (!value) {
+    return '';
+  }
+  if (value instanceof Date) {
+    return formatDateForApi(value);
+  }
+  if (typeof value === 'number') {
+    return formatDateForApi(new Date(value));
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return '';
+    }
+    const match = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (match) {
+      return match[1];
+    }
+    const parsed = parseDateValue(trimmed);
+    if (parsed) {
+      return formatDateForApi(parsed);
+    }
+  }
+  return '';
 }
 
 function toTimestamp(value) {
