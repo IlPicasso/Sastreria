@@ -71,6 +71,20 @@ def customer(db_session):
     return customer
 
 
+@pytest.fixture
+def tailor_user(db_session):
+    user = models.User(
+        username="tailor",
+        full_name="Sastre Ejemplo",
+        role=models.UserRole.SASTRE,
+        password_hash=auth.get_password_hash("secret"),
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
 def test_create_order_with_invalid_tailor_id(db_session, admin_user, customer):
     order_in = schemas.OrderCreate(
         order_number="ORD-100",

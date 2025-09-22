@@ -115,6 +115,7 @@ class OrderCreate(OrderBase):
     tasks: List[OrderTaskCreate] = Field(
         ...,
         min_length=1,
+
         description="Listado de trabajos que se realizarán para completar la orden.",
     )
 
@@ -169,6 +170,7 @@ class OrderTaskBase(BaseModel):
         return trimmed
 
 
+
 class OrderTaskCreate(OrderTaskBase):
     status: OrderTaskStatus = OrderTaskStatus.PENDING
     responsible_id: Optional[int] = Field(default=None, ge=1)
@@ -188,6 +190,7 @@ class OrderTaskUpdate(BaseModel):
         if not trimmed:
             raise ValueError("La descripción de la tarea es obligatoria")
         return trimmed
+
 
 
 class OrderTaskRead(BaseModel):

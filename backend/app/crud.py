@@ -6,6 +6,10 @@ from sqlalchemy.orm import Session, joinedload
 from . import auth, models, schemas
 
 
+DEFAULT_TASK_PREFIX = "Trabajo"
+DEFAULT_TASK_FALLBACK_LABEL = f"{DEFAULT_TASK_PREFIX} sin descripción"
+
+
 # Serialization helpers -----------------------------------------------------
 
 def serialize_user(user: Optional[models.User]) -> Optional[Dict[str, Any]]:
@@ -66,6 +70,7 @@ def serialize_order_task(task: Optional[models.OrderTask]) -> Optional[Dict[str,
     if task is None:
         return None
     description = (task.description or "").strip() or "Trabajo sin descripción"
+
     return {
         "id": task.id,
         "order_id": task.order_id,
@@ -411,6 +416,47 @@ def update_order(db: Session, db_order: models.Order, order_update: schemas.Orde
 def delete_order(db: Session, db_order: models.Order) -> None:
     db.delete(db_order)
     db.commit()
+
+
+# Order task operations -----------------------------------------------------
+
+
+def _format_default_task_label(sequence: int) -> str:
+    return f"{DEFAULT_TASK_PREFIX} #{sequence}"
+
+
+def _next_task_sequence(db: Session, order_id: int) -> int:
+    total = (
+        db.query(func.count(models.OrderTask.id))
+        .filter(models.OrderTask.order_id == order_id)
+        .scalar()
+    )
+    return int(total or 0) + 1
+
+
+def _task_sequence_for(db: Session, task: models.OrderTask) -> int:
+    task_ids = (
+        db.query(models.OrderTask.id)
+        .filter(models.OrderTask.order_id == task.order_id)
+        .order_by(models.OrderTask.created_at.asc(), models.OrderTask.id.asc())
+        .all()
+    )
+    for index, (task_id,) in enumerate(task_ids, start=1):
+        if task_id == task.id:
+            return index
+    return len(task_ids) + 1
+
+
+def _normalized_task_description(
+    *,
+    description: Optional[str],
+    fallback: str,
+) -> str:
+    if description is None:
+        return fallback
+    trimmed = description.strip()
+    return trimmed or fallback
+
 
 
 def list_order_tasks(db: Session, *, order_id: int) -> List[models.OrderTask]:

@@ -365,6 +365,11 @@ def create_order_endpoint(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(vendor_or_admin_required()),
 ):
+    if current_user.role not in {models.UserRole.ADMIN, models.UserRole.VENDEDOR}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tiene permisos para realizar esta acción",
+        )
     if crud.get_order_by_number(db, order_in.order_number):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ya existe una orden con ese número")
     customer = crud.get_customer(db, order_in.customer_id)
@@ -388,6 +393,7 @@ def create_order_endpoint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Debes registrar al menos un trabajo para la orden",
         )
+
 
     order_data = order_in.model_dump()
     order_data["tasks"] = [task.model_dump() for task in normalized_tasks]
