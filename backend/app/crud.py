@@ -468,6 +468,7 @@ def update_order_task(
         if not description:
             description = data["description"]
         db_task.description = description
+
     if "status" in data:
         db_task.status = data["status"]
     if "responsible_id" in data:
