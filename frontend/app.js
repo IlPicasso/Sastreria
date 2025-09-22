@@ -89,6 +89,8 @@ const panelNavButton = document.getElementById('panelNavButton');
 const loginNavButton = document.getElementById('loginNavButton');
 const dashboardTabButtons = document.querySelectorAll('.dashboard-tab');
 const dashboardPanels = document.querySelectorAll('.dashboard-panel');
+const orderCreateTabButton = document.getElementById('orderCreateTabButton');
+const orderCreatePanel = document.getElementById('orderCreatePanel');
 const orderLookupForm = document.getElementById('orderLookupForm');
 const orderNumberInput = document.getElementById('orderNumber');
 const orderDocumentInput = document.getElementById('customerDocument');
@@ -115,6 +117,9 @@ const customerDetailSummaryElement = document.getElementById('customerDetailSumm
 const customerOrderHistoryContainer = document.getElementById('customerOrderHistory');
 const customerMeasurementsContainer = document.getElementById('customerMeasurementsContainer');
 const updateCustomerMeasurementsContainer = document.getElementById('updateCustomerMeasurementsContainer');
+const updateCustomerNameInput = document.getElementById('updateCustomerName');
+const updateCustomerDocumentInput = document.getElementById('updateCustomerDocument');
+const updateCustomerPhoneInput = document.getElementById('updateCustomerPhone');
 const addCustomerMeasurementSetButton = document.getElementById('addCustomerMeasurementSet');
 const addUpdateCustomerMeasurementSetButton = document.getElementById('addUpdateCustomerMeasurementSet');
 const deleteCustomerButton = document.getElementById('deleteCustomerButton');
@@ -213,23 +218,61 @@ if (loginNavButton) {
   });
 }
 
+function isOrderCreatePanelHidden() {
+  return !orderCreatePanel || orderCreatePanel.classList.contains('hidden');
+}
+
+function syncCreateOrderFormDisabled() {
+  if (!createOrderForm) return;
+  const shouldDisable = isOrderCreatePanelHidden();
+  createOrderForm.dataset.disabled = shouldDisable ? 'true' : 'false';
+  const submitButton = createOrderForm.querySelector('button[type="submit"]');
+  if (submitButton) {
+    submitButton.disabled = shouldDisable;
+  }
+}
+
 function setActiveDashboardTab(tabId = 'orderListPanel') {
   if (!dashboardPanels.length) return;
+  const userRole = state.user?.role || null;
   let targetTab = tabId || 'orderListPanel';
-  if (targetTab === 'auditLogPanel' && state.user?.role !== 'administrador') {
+  if (targetTab === 'auditLogPanel' && userRole !== 'administrador') {
+    targetTab = 'orderListPanel';
+  }
+  if (targetTab === 'orderCreatePanel' && userRole === 'sastre') {
     targetTab = 'orderListPanel';
   }
   activeDashboardTab = targetTab;
   dashboardTabButtons.forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.tab === targetTab);
+    const tab = btn.dataset.tab;
+    if (tab === 'orderCreatePanel') {
+      const shouldHideTab = userRole === 'sastre';
+      if (shouldHideTab) {
+        btn.classList.add('hidden');
+      } else {
+        btn.classList.remove('hidden');
+      }
+      btn.disabled = shouldHideTab;
+    }
+    btn.classList.toggle('active', tab === targetTab);
   });
   dashboardPanels.forEach((panel) => {
-    panel.classList.toggle('hidden', panel.id !== targetTab);
+    if (panel.id === 'orderCreatePanel' && userRole === 'sastre') {
+      panel.classList.add('hidden');
+    } else {
+      panel.classList.toggle('hidden', panel.id !== targetTab);
+    }
   });
+  syncCreateOrderFormDisabled();
 }
 
 dashboardTabButtons.forEach((btn) => {
-  btn.addEventListener('click', () => setActiveDashboardTab(btn.dataset.tab));
+  btn.addEventListener('click', () => {
+    if (btn.disabled) {
+      return;
+    }
+    setActiveDashboardTab(btn.dataset.tab);
+  });
 });
 
 setActiveDashboardTab(activeDashboardTab);
@@ -1000,6 +1043,7 @@ function createOrderTaskRowElement(data = { responsible_id: '' }) {
   });
 
   row.appendChild(labelField);
+
   row.appendChild(responsibleField);
   row.appendChild(removeButton);
 
@@ -1011,6 +1055,7 @@ function addNewOrderTaskRow(data = { responsible_id: '' }) {
   const row = createOrderTaskRowElement(data);
   newOrderTasksList.appendChild(row);
   updateNewOrderTaskLabels();
+
 }
 
 function ensureNewOrderTaskRow() {
@@ -1018,6 +1063,7 @@ function ensureNewOrderTaskRow() {
     addNewOrderTaskRow();
   }
   updateNewOrderTaskLabels();
+
 }
 
 function populateNewOrderTaskResponsibles() {
@@ -1058,6 +1104,7 @@ function updateNewOrderTaskLabels() {
       label.textContent = `Trabajo #${index + 1}`;
     }
   });
+
 }
 
 if (addOrderTaskButton) {
@@ -1282,8 +1329,24 @@ function updateUserInfo() {
   if (auditLogTabButton) {
     auditLogTabButton.classList.toggle('hidden', !isAdmin);
   }
+  const isTailor = state.user.role === 'sastre';
+  if (orderCreateTabButton) {
+    if (isTailor) {
+      orderCreateTabButton.classList.add('hidden');
+    } else {
+      orderCreateTabButton.classList.remove('hidden');
+    }
+    orderCreateTabButton.disabled = isTailor;
+  }
+  if (orderCreatePanel && isTailor) {
+    orderCreatePanel.classList.add('hidden');
+  }
   if (!isAdmin && activeDashboardTab === 'auditLogPanel') {
     setActiveDashboardTab('orderListPanel');
+  } else if (isTailor && activeDashboardTab === 'orderCreatePanel') {
+    setActiveDashboardTab('orderListPanel');
+  } else {
+    setActiveDashboardTab(activeDashboardTab);
   }
   renderOrderTasks();
 }
@@ -2113,9 +2176,11 @@ async function populateCustomerDetail(customer) {
       summaryParts.length ? summaryParts.join(' • ') : 'Sin datos de contacto registrados.';
   }
 
-  const nameInput = document.getElementById('updateCustomerName');
-  const documentInput = document.getElementById('updateCustomerDocument');
-  const phoneInput = document.getElementById('updateCustomerPhone');
+  const nameInput = updateCustomerNameInput || customerDetail?.querySelector('#updateCustomerName');
+  const documentInput =
+    updateCustomerDocumentInput || customerDetail?.querySelector('#updateCustomerDocument');
+  const phoneInput = updateCustomerPhoneInput || customerDetail?.querySelector('#updateCustomerPhone');
+
   const normalizedCustomerName =
     typeof customer?.full_name === 'string' ? customer.full_name.trim() : '';
   const normalizedCustomerDocument =
@@ -2518,9 +2583,15 @@ if (updateCustomerForm) {
       showToast('Selecciona un cliente para actualizar.', 'error');
       return;
     }
-    const fullName = document.getElementById('updateCustomerName').value.trim();
-    const documentId = document.getElementById('updateCustomerDocument').value.trim();
-    const phone = document.getElementById('updateCustomerPhone').value.trim();
+    const fullNameInput =
+      updateCustomerNameInput || customerDetail?.querySelector('#updateCustomerName');
+    const documentInput =
+      updateCustomerDocumentInput || customerDetail?.querySelector('#updateCustomerDocument');
+    const phoneInput =
+      updateCustomerPhoneInput || customerDetail?.querySelector('#updateCustomerPhone');
+    const fullName = fullNameInput?.value.trim() || '';
+    const documentId = documentInput?.value.trim() || '';
+    const phone = phoneInput?.value.trim() || '';
     const measurements = collectMeasurementSets(updateCustomerMeasurementsContainer);
     const submitButton = updateCustomerForm.querySelector('button[type="submit"]');
     submitButton.disabled = true;
@@ -2573,6 +2644,10 @@ if (deleteCustomerButton) {
 }
 async function createOrder(event) {
   event.preventDefault();
+  if (!createOrderForm) return;
+  if (createOrderForm.dataset.disabled === 'true' || isOrderCreatePanelHidden()) {
+    return;
+  }
   const newOrderNumber = document.getElementById('newOrderNumber').value.trim();
   const selectedCustomerId = Number(orderCustomerSelect.value);
   const newCustomerName = document.getElementById('newCustomerName').value.trim();
@@ -2598,8 +2673,22 @@ async function createOrder(event) {
     return;
   }
 
+  if (hasEmptyDescription) {
+    showToast('Completa o elimina los trabajos sin descripción.', 'error');
+    firstEmptyInput?.focus();
+    return;
+  }
+
+  if (!orderTasks.length) {
+    showToast('Agrega al menos un trabajo a realizar para la orden.', 'error');
+    firstEmptyInput?.focus();
+    return;
+  }
+
   const submitButton = createOrderForm.querySelector('button[type="submit"]');
-  submitButton.disabled = true;
+  if (submitButton) {
+    submitButton.disabled = true;
+  }
   try {
     await apiFetch('/orders', {
       method: 'POST',
@@ -2628,7 +2717,7 @@ async function createOrder(event) {
   } catch (error) {
     showToast(error.message, 'error');
   } finally {
-    submitButton.disabled = false;
+    syncCreateOrderFormDisabled();
   }
 }
 

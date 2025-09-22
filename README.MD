@@ -42,6 +42,10 @@ Crear el primer usuario administrador:
 python create_admin.py --username admin --password cambialo --full-name "Administrador"
 ```
 
+Si necesitas crear un usuario inicial con otro rol, añade la opción `--role` con uno de
+los valores disponibles (`admin`, `sales`, `tailor`). El valor predeterminado es
+`admin`.
+
 Poblar la base de datos con información de ejemplo (opcional):
 
 ```bash

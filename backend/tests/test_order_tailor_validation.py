@@ -5,7 +5,7 @@ from pathlib import Path
 os.environ.setdefault("SECRET_KEY", "test-secret-key-value-32-chars!!")
 
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -68,6 +68,20 @@ def customer(db_session):
     db_session.commit()
     db_session.refresh(customer)
     return customer
+
+
+@pytest.fixture
+def tailor_user(db_session):
+    user = models.User(
+        username="tailor",
+        full_name="Sastre Ejemplo",
+        role=models.UserRole.SASTRE,
+        password_hash=auth.get_password_hash("secret"),
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
 
 
 def test_create_order_with_invalid_tailor_id(db_session, admin_user, customer):
@@ -152,6 +166,7 @@ def test_order_creation_persists_initial_tasks(db_session, vendor_user, customer
     assert stored_tasks[2].responsible_id is None
 
 
+
 def test_order_creation_rejects_non_tailor_task_responsible(db_session, vendor_user, customer):
     non_tailor = create_user(db_session, "no_tailor", models.UserRole.VENDEDOR)
     order_in = schemas.OrderCreate(
@@ -186,3 +201,4 @@ def test_create_order_without_tasks_is_allowed(db_session, vendor_user, customer
     )
 
     assert stored_tasks == []
+
