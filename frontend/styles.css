@@ -891,6 +891,10 @@ th {
   border: none;
 }
 
+.order-task-input-label {
+  font-weight: 600;
+}
+
 .tag {
   display: inline-flex;
   align-items: center;
