@@ -4,6 +4,33 @@ from __future__ import annotations
 
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import DBAPIError
+
+
+def _is_duplicate_column_error(exc: DBAPIError) -> bool:
+    """Return True if the DB-API error indicates the column already exists."""
+
+    original = exc.orig
+    if original is None:
+        return False
+
+    message = str(original).lower()
+    duplicate_indicators = (
+        "duplicate column",
+        "already exists",
+    )
+    if any(indicator in message for indicator in duplicate_indicators):
+        return True
+
+    pgcode = getattr(original, "pgcode", None)
+    if pgcode == "42701":  # duplicate_column
+        return True
+
+    errno = getattr(original, "errno", None)
+    if errno == 1060:  # MySQL duplicate column name
+        return True
+
+    return False
 
 
 def ensure_assigned_vendor_column(engine: Engine) -> None:
@@ -32,7 +59,12 @@ def ensure_assigned_vendor_column(engine: Engine) -> None:
         )
 
     with engine.begin() as connection:
-        connection.execute(text(ddl))
+        try:
+            connection.execute(text(ddl))
+        except DBAPIError as exc:
+            if _is_duplicate_column_error(exc):
+                return
+            raise
 
 
 def apply_schema_upgrades(engine: Engine) -> None:
