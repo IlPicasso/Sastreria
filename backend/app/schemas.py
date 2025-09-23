@@ -105,6 +105,7 @@ class OrderBase(BaseModel):
     measurements: List[MeasurementItem] = Field(default_factory=list)
     notes: Optional[str] = None
     assigned_tailor_id: Optional[int] = None
+    assigned_vendor_id: Optional[int] = None
     delivery_date: Optional[date] = None
     invoice_number: Optional[str] = None
     origin_branch: Optional[Establishment] = None
@@ -129,6 +130,7 @@ class OrderUpdate(BaseModel):
     measurements: Optional[List[MeasurementItem]] = None
     notes: Optional[str] = None
     assigned_tailor_id: Optional[int] = None
+    assigned_vendor_id: Optional[int] = None
     delivery_date: Optional[date] = None
     invoice_number: Optional[str] = None
     origin_branch: Optional[Establishment] = None
@@ -155,6 +157,7 @@ class OrderRead(OrderPublic):
     customer_contact: Optional[str]
     customer: Optional[CustomerSummary]
     assigned_tailor: Optional[UserOut]
+    assigned_vendor: Optional[UserOut]
     created_at: datetime
 
 
