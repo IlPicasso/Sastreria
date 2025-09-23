@@ -101,6 +101,22 @@ def test_create_order_with_invalid_tailor_id(db_session, admin_user, customer):
     assert exc_info.value.detail == "El sastre asignado no existe"
 
 
+def test_create_order_with_invalid_vendor_id(db_session, admin_user, customer):
+    order_in = schemas.OrderCreate(
+        order_number="ORD-110",
+        customer_id=customer.id,
+        origin_branch=models.Establishment.BATAN,
+        assigned_vendor_id=999,
+        tasks=[schemas.OrderTaskCreate(description="Registrar medidas")],
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        main.create_order_endpoint(order_in, db_session, admin_user)
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "El vendedor asignado no existe"
+
+
 def test_update_order_rejects_non_tailor_assignment(db_session, admin_user, customer):
     created_order = main.create_order_endpoint(
         schemas.OrderCreate(
@@ -135,6 +151,32 @@ def test_update_order_rejects_non_tailor_assignment(db_session, admin_user, cust
     assert exc_info.value.detail == "El usuario asignado no es un sastre"
 
 
+def test_update_order_rejects_non_vendor_assignment(db_session, admin_user, customer):
+    created_order = main.create_order_endpoint(
+        schemas.OrderCreate(
+            order_number="ORD-210",
+            customer_id=customer.id,
+            origin_branch=models.Establishment.INDIE,
+            tasks=[schemas.OrderTaskCreate(description="Preparar patrón")],
+        ),
+        db_session,
+        admin_user,
+    )
+
+    non_vendor = create_user(db_session, "not_vendor", models.UserRole.SASTRE)
+
+    with pytest.raises(HTTPException) as exc_info:
+        main.update_order_endpoint(
+            created_order.id,
+            schemas.OrderUpdate(assigned_vendor_id=non_vendor.id),
+            db_session,
+            admin_user,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "El usuario asignado no es un vendedor"
+
+
 def test_order_creation_persists_initial_tasks(db_session, vendor_user, customer):
     tailor = create_user(db_session, "tailor", models.UserRole.SASTRE)
     order_in = schemas.OrderCreate(
@@ -165,6 +207,19 @@ def test_order_creation_persists_initial_tasks(db_session, vendor_user, customer
     assert stored_tasks[1].responsible_id is None
     assert stored_tasks[2].description == "Empaque final"
     assert stored_tasks[2].responsible_id is None
+
+
+def test_vendor_is_assigned_by_default(db_session, vendor_user, customer):
+    order_in = schemas.OrderCreate(
+        order_number="ORD-310",
+        customer_id=customer.id,
+        origin_branch=models.Establishment.URDESA,
+        tasks=[schemas.OrderTaskCreate(description="Registrar cliente")],
+    )
+
+    order = main.create_order_endpoint(order_in, db_session, vendor_user)
+
+    assert order.assigned_vendor_id == vendor_user.id
 
 
 def test_order_creation_rejects_non_tailor_task_responsible(db_session, vendor_user, customer):
