@@ -1,4 +1,5 @@
 import math
+from contextlib import asynccontextmanager
 from typing import List, Optional, Tuple
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
@@ -21,6 +22,12 @@ DEFAULT_PAGE_SIZE = 25
 MAX_PAGE_SIZE = 200
 
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
 def resolve_pagination(
     *,
     skip: Optional[int],
@@ -38,7 +45,7 @@ def resolve_pagination(
     current_page = (skip_value // effective_page_size) + 1 if effective_page_size else 1
     return skip_value, effective_page_size, current_page
 
-app = FastAPI(title=settings.app_name)
+app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -47,12 +54,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-def on_startup():
-    Base.metadata.create_all(bind=engine)
-
 
 def _validate_assigned_tailor(
     db: Session, assigned_tailor_id: Optional[int]
