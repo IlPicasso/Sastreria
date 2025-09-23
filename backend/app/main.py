@@ -15,6 +15,7 @@ from .dependencies import (
     tailor_or_admin_required,
     vendor_or_admin_required,
 )
+from .migrations import apply_schema_upgrades
 
 settings = get_settings()
 
@@ -25,6 +26,7 @@ MAX_PAGE_SIZE = 200
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     Base.metadata.create_all(bind=engine)
+    apply_schema_upgrades(engine)
     yield
 
 
