@@ -496,8 +496,112 @@
           </section>
 
           <section class="card dashboard-panel hidden" id="usersPanel">
-            <h3>Usuarios registrados</h3>
-            <p class="muted small">Consulta los usuarios autorizados y su rol dentro del sistema.</p>
+            <div class="users-panel-header">
+              <div>
+                <h3>Gestión de usuarios</h3>
+                <p class="muted small">
+                  Consulta los usuarios autorizados, define sus roles y administra los accesos al panel.
+                </p>
+              </div>
+              <div class="users-panel-actions">
+                <button
+                  type="button"
+                  class="primary"
+                  id="toggleCreateUserButton"
+                  aria-expanded="false"
+                  aria-controls="userCreateContainer"
+                >
+                  Registrar usuario
+                </button>
+              </div>
+            </div>
+            <div id="userCreateContainer" class="user-create hidden" aria-hidden="true">
+              <div class="user-create-header">
+                <h4>Registrar nuevo usuario</h4>
+                <button type="button" class="link-button" id="closeCreateUserButton">Ocultar formulario</button>
+              </div>
+              <p class="muted small">
+                Completa el formulario para otorgar acceso y definir el rol correspondiente.
+              </p>
+              <form id="createUserForm" class="form-grid">
+                <div class="form-row">
+                  <label for="newUserUsername">Nombre de usuario</label>
+                  <input
+                    type="text"
+                    id="newUserUsername"
+                    name="username"
+                    required
+                    minlength="3"
+                    autocomplete="username"
+                    placeholder="Ej. jgomez"
+                  />
+                </div>
+                <div class="form-row">
+                  <label for="newUserFullName">Nombre completo</label>
+                  <input
+                    type="text"
+                    id="newUserFullName"
+                    name="fullName"
+                    required
+                    autocomplete="name"
+                    placeholder="Ej. Juan Gómez"
+                  />
+                </div>
+                <div class="form-row">
+                  <label for="newUserRole">Rol</label>
+                  <select id="newUserRole" name="role" required></select>
+                </div>
+                <div class="form-row">
+                  <label for="newUserPassword">Contraseña temporal</label>
+                  <input
+                    type="password"
+                    id="newUserPassword"
+                    name="password"
+                    required
+                    minlength="6"
+                    autocomplete="new-password"
+                    placeholder="Mínimo 6 caracteres"
+                  />
+                </div>
+                <div class="button-row">
+                  <button type="submit" class="primary">Crear usuario</button>
+                </div>
+              </form>
+            </div>
+            <div id="userEditContainer" class="user-edit hidden" aria-hidden="true">
+              <div class="user-edit-header">
+                <h4 id="editUserTitle">Editar usuario</h4>
+                <button type="button" class="link-button" id="cancelEditUserButton">Cancelar edición</button>
+              </div>
+              <form id="editUserForm" class="form-grid">
+                <div class="form-row">
+                  <label for="editUserUsername">Nombre de usuario</label>
+                  <input type="text" id="editUserUsername" name="username" readonly />
+                </div>
+                <div class="form-row">
+                  <label for="editUserFullName">Nombre completo</label>
+                  <input type="text" id="editUserFullName" name="fullName" required autocomplete="name" />
+                </div>
+                <div class="form-row">
+                  <label for="editUserRole">Rol</label>
+                  <select id="editUserRole" name="role" required></select>
+                </div>
+                <div class="form-row">
+                  <label for="editUserPassword">Restablecer contraseña</label>
+                  <input
+                    type="password"
+                    id="editUserPassword"
+                    name="password"
+                    minlength="6"
+                    autocomplete="new-password"
+                    placeholder="Deja en blanco para mantenerla sin cambios"
+                  />
+                </div>
+                <div class="button-row">
+                  <button type="submit" class="primary">Guardar cambios</button>
+                </div>
+              </form>
+            </div>
             <div class="table-wrapper">
               <table>
                 <thead>
@@ -505,6 +609,7 @@
                     <th>Usuario</th>
                     <th>Nombre completo</th>
                     <th>Rol</th>
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody id="usersTableBody"></tbody>

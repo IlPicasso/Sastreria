@@ -26,10 +26,12 @@ const state = {
   customerTotal: 0,
   orderTotal: 0,
   isCreateCustomerVisible: false,
+  isCreateUserVisible: false,
   auditLogs: [],
   users: [],
   usersLoaded: false,
   usersLoadError: null,
+  editingUserId: null,
   selectedCustomerId: null,
   selectedOrderId: null,
   orderTasks: [],
@@ -175,6 +177,22 @@ const usersTabButton = document.getElementById('usersTabButton');
 const auditLogTabButton = document.getElementById('auditLogTabButton');
 const auditLogTableBody = document.getElementById('auditLogTableBody');
 const usersTableBody = document.getElementById('usersTableBody');
+const userCreateContainer = document.getElementById('userCreateContainer');
+const toggleCreateUserButton = document.getElementById('toggleCreateUserButton');
+const closeCreateUserButton = document.getElementById('closeCreateUserButton');
+const createUserForm = document.getElementById('createUserForm');
+const newUserUsernameInput = document.getElementById('newUserUsername');
+const newUserFullNameInput = document.getElementById('newUserFullName');
+const newUserPasswordInput = document.getElementById('newUserPassword');
+const newUserRoleSelect = document.getElementById('newUserRole');
+const userEditContainer = document.getElementById('userEditContainer');
+const editUserForm = document.getElementById('editUserForm');
+const editUserUsernameInput = document.getElementById('editUserUsername');
+const editUserFullNameInput = document.getElementById('editUserFullName');
+const editUserRoleSelect = document.getElementById('editUserRole');
+const editUserPasswordInput = document.getElementById('editUserPassword');
+const cancelEditUserButton = document.getElementById('cancelEditUserButton');
+const editUserTitle = document.getElementById('editUserTitle');
 const closeCustomerDetailButton = document.getElementById('closeCustomerDetailButton');
 
 const ROLE_LABELS = {
@@ -182,6 +200,14 @@ const ROLE_LABELS = {
   vendedor: 'Vendedor',
   sastre: 'Sastre',
 };
+
+const DEFAULT_NEW_USER_ROLE = 'vendedor';
+
+const USER_ROLE_OPTIONS = [
+  { value: 'administrador', label: ROLE_LABELS.administrador },
+  { value: 'vendedor', label: ROLE_LABELS.vendedor },
+  { value: 'sastre', label: ROLE_LABELS.sastre },
+];
 
 const DELIVERY_WARNING_DAYS = 2;
 const CUSTOMER_DETAIL_DEFAULT_TITLE = 'Detalle del cliente';
@@ -1384,7 +1410,10 @@ function renderCustomerMeasurementOptions(customer) {
   });
 }
 function updateUserInfo() {
-  if (!state.user) return;
+  if (!state.user) {
+    updateUserCreationForm();
+    return;
+  }
   if (currentUserNameElement) {
     currentUserNameElement.textContent = state.user.full_name;
   }
@@ -1424,6 +1453,7 @@ function updateUserInfo() {
   } else {
     setActiveDashboardTab(activeDashboardTab);
   }
+  updateUserCreationForm();
   renderOrderTasks();
 }
 
@@ -1488,6 +1518,7 @@ async function bootstrapAuthenticatedSession({ showWelcomeToast = false } = {}) 
   }
 
   setCreateCustomerVisible(false);
+  setCreateUserVisible(false);
   resetCreateOrderForm();
   showDashboard();
   updateNavigationForAuth();
@@ -1846,6 +1877,7 @@ function handleLogout(auto = false) {
   state.customerTotal = 0;
   state.orderTotal = 0;
   state.isCreateCustomerVisible = false;
+  state.isCreateUserVisible = false;
   state.auditLogs = [];
   state.selectedCustomerId = null;
   state.selectedOrderId = null;
@@ -1859,6 +1891,7 @@ function handleLogout(auto = false) {
   state.users = [];
   state.usersLoaded = false;
   state.usersLoadError = null;
+  state.editingUserId = null;
   if (currentUserNameElement) {
     currentUserNameElement.textContent = '';
   }
@@ -1911,9 +1944,16 @@ function handleLogout(auto = false) {
   if (auditLogTableBody) {
     auditLogTableBody.innerHTML = '';
   }
+  if (usersTableBody) {
+    usersTableBody.innerHTML = '';
+  }
   clearCustomerDetail();
   clearOrderDetail({ skipRender: true });
   resetCreateCustomerForm();
+  resetCreateUserForm();
+  clearUserEditForm();
+  updateUserCreationForm();
+  renderUsers();
 
   measurementsList.innerHTML = '';
   ensureMeasurementRow();
@@ -2701,6 +2741,20 @@ if (closeCreateCustomerButton) {
   });
 }
 
+if (toggleCreateUserButton) {
+  toggleCreateUserButton.addEventListener('click', () => {
+    const shouldShow = !state.isCreateUserVisible;
+    setCreateUserVisible(shouldShow);
+  });
+}
+
+if (closeCreateUserButton) {
+  closeCreateUserButton.addEventListener('click', () => {
+    setCreateUserVisible(false);
+    toggleCreateUserButton?.focus();
+  });
+}
+
 
 if (updateOrderForm) {
   updateOrderForm.addEventListener('submit', handleOrderUpdate);
@@ -2708,6 +2762,20 @@ if (updateOrderForm) {
 
 if (orderTaskForm) {
   orderTaskForm.addEventListener('submit', handleOrderTaskCreate);
+}
+
+if (createUserForm) {
+  createUserForm.addEventListener('submit', handleCreateUser);
+}
+
+if (editUserForm) {
+  editUserForm.addEventListener('submit', handleEditUserSubmit);
+}
+
+if (cancelEditUserButton) {
+  cancelEditUserButton.addEventListener('click', () => {
+    cancelUserEdit({ focusTable: true });
+  });
 }
 
 if (closeOrderDetailButton) {
@@ -3299,7 +3367,7 @@ function renderUsers() {
   const appendMessageRow = (message) => {
     const row = document.createElement('tr');
     const cell = document.createElement('td');
-    cell.colSpan = 3;
+    cell.colSpan = 4;
     cell.className = 'muted';
     cell.textContent = message;
     row.appendChild(cell);
@@ -3308,26 +3376,35 @@ function renderUsers() {
 
   if (!state.user || state.user.role !== 'administrador') {
     appendMessageRow('Inicia sesión como administrador para ver los usuarios.');
+    updateUserEditForm();
     return;
   }
 
   if (state.usersLoadError) {
     appendMessageRow(state.usersLoadError);
+    updateUserEditForm();
     return;
   }
 
   if (!state.usersLoaded) {
     appendMessageRow('Cargando usuarios...');
+    updateUserEditForm();
     return;
   }
 
   if (!state.users.length) {
     appendMessageRow('No hay usuarios registrados.');
+    updateUserEditForm();
     return;
   }
 
   state.users.forEach((user) => {
     const row = document.createElement('tr');
+    row.classList.add('user-row');
+    const isEditing = state.editingUserId === user.id;
+    if (isEditing) {
+      row.classList.add('is-editing');
+    }
 
     const usernameCell = document.createElement('td');
     usernameCell.dataset.label = 'Usuario';
@@ -3341,12 +3418,380 @@ function renderUsers() {
     roleCell.dataset.label = 'Rol';
     roleCell.textContent = ROLE_LABELS[user.role] || user.role;
 
+    const actionsCell = document.createElement('td');
+    actionsCell.dataset.label = 'Acciones';
+    const editButton = document.createElement('button');
+    editButton.type = 'button';
+    editButton.className = 'secondary';
+    editButton.textContent = isEditing ? 'Cerrar formulario' : 'Editar';
+    editButton.addEventListener('click', () => {
+      if (state.editingUserId === user.id) {
+        cancelUserEdit();
+      } else {
+        startUserEdit(user.id);
+      }
+    });
+    actionsCell.appendChild(editButton);
+
     row.appendChild(usernameCell);
     row.appendChild(nameCell);
     row.appendChild(roleCell);
+    row.appendChild(actionsCell);
 
     usersTableBody.appendChild(row);
   });
+
+  updateUserEditForm();
+}
+
+function populateUserRoleSelect(selectElement, selectedValue = DEFAULT_NEW_USER_ROLE) {
+  if (!selectElement) return;
+  const normalized = (selectedValue || '').trim();
+  const fallbackIndex = Math.max(
+    USER_ROLE_OPTIONS.findIndex((option) => option.value === DEFAULT_NEW_USER_ROLE),
+    0,
+  );
+  let selectedIndex = -1;
+  selectElement.innerHTML = '';
+  USER_ROLE_OPTIONS.forEach(({ value, label }, index) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    if (normalized === value) {
+      option.selected = true;
+      selectedIndex = index;
+    }
+    selectElement.appendChild(option);
+  });
+  if (selectedIndex === -1) {
+    selectElement.selectedIndex = fallbackIndex;
+  }
+}
+
+function resetCreateUserForm() {
+  if (newUserUsernameInput) {
+    newUserUsernameInput.value = '';
+  }
+  if (newUserFullNameInput) {
+    newUserFullNameInput.value = '';
+  }
+  if (newUserPasswordInput) {
+    newUserPasswordInput.value = '';
+  }
+  populateUserRoleSelect(newUserRoleSelect, DEFAULT_NEW_USER_ROLE);
+}
+
+function setCreateUserVisible(visible) {
+  const isAdmin = state.user?.role === 'administrador';
+  const shouldShow = Boolean(visible) && isAdmin;
+  state.isCreateUserVisible = shouldShow;
+  updateUserCreationForm();
+  if (shouldShow) {
+    if (userCreateContainer && typeof userCreateContainer.scrollIntoView === 'function') {
+      userCreateContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    const firstField = createUserForm?.querySelector('input, select, textarea');
+    firstField?.focus();
+  } else if (isAdmin) {
+    resetCreateUserForm();
+  }
+}
+
+function populateUserEditForm(user) {
+  if (!user || state.user?.role !== 'administrador') {
+    clearUserEditForm();
+    return;
+  }
+  if (editUserUsernameInput) {
+    editUserUsernameInput.value = user.username || '';
+  }
+  if (editUserFullNameInput) {
+    editUserFullNameInput.value = user.full_name || '';
+  }
+  populateUserRoleSelect(editUserRoleSelect, user.role || DEFAULT_NEW_USER_ROLE);
+  if (editUserPasswordInput) {
+    editUserPasswordInput.value = '';
+  }
+  if (editUserTitle) {
+    const displayName = (user.full_name || '').trim() || user.username || 'Editar usuario';
+    editUserTitle.textContent = `Editar usuario: ${displayName}`;
+  }
+  if (userEditContainer) {
+    userEditContainer.classList.remove('hidden');
+    userEditContainer.setAttribute('aria-hidden', 'false');
+  }
+}
+
+function clearUserEditForm() {
+  if (editUserUsernameInput) {
+    editUserUsernameInput.value = '';
+  }
+  if (editUserFullNameInput) {
+    editUserFullNameInput.value = '';
+  }
+  if (editUserPasswordInput) {
+    editUserPasswordInput.value = '';
+  }
+  populateUserRoleSelect(editUserRoleSelect, DEFAULT_NEW_USER_ROLE);
+  if (editUserTitle) {
+    editUserTitle.textContent = 'Editar usuario';
+  }
+  if (userEditContainer) {
+    userEditContainer.classList.add('hidden');
+    userEditContainer.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function updateUserEditForm() {
+  const isAdmin = state.user?.role === 'administrador';
+  if (!isAdmin) {
+    state.editingUserId = null;
+    clearUserEditForm();
+    return;
+  }
+  const editingId = state.editingUserId;
+  if (!editingId) {
+    clearUserEditForm();
+    return;
+  }
+  const editingUser = state.users.find((user) => user.id === editingId);
+  if (!editingUser) {
+    state.editingUserId = null;
+    clearUserEditForm();
+    return;
+  }
+  const currentUsername = editUserUsernameInput?.value || '';
+  if (!currentUsername || currentUsername !== (editingUser.username || '')) {
+    populateUserEditForm(editingUser);
+  } else {
+    if (editUserTitle) {
+      const displayName = (editingUser.full_name || '').trim() || editingUser.username || 'Editar usuario';
+      editUserTitle.textContent = `Editar usuario: ${displayName}`;
+    }
+    if (userEditContainer) {
+      userEditContainer.classList.remove('hidden');
+      userEditContainer.setAttribute('aria-hidden', 'false');
+    }
+  }
+}
+
+function startUserEdit(userId) {
+  if (!state.user || state.user.role !== 'administrador') {
+    showToast('Solo los administradores pueden editar usuarios.', 'error');
+    return;
+  }
+  const numericId = Number(userId);
+  if (!Number.isFinite(numericId)) {
+    showToast('Selecciona un usuario válido para editar.', 'error');
+    return;
+  }
+  const user = state.users.find((entry) => entry.id === numericId);
+  if (!user) {
+    showToast('No se encontró el usuario seleccionado.', 'error');
+    return;
+  }
+  state.editingUserId = numericId;
+  populateUserEditForm(user);
+  renderUsers();
+  if (editUserFullNameInput) {
+    editUserFullNameInput.focus();
+    editUserFullNameInput.select?.();
+  }
+}
+
+function cancelUserEdit({ focusTable = false } = {}) {
+  state.editingUserId = null;
+  clearUserEditForm();
+  renderUsers();
+  if (focusTable && usersTableBody) {
+    const firstButton = usersTableBody.querySelector('button');
+    firstButton?.focus();
+  }
+}
+
+function updateUserCreationForm() {
+  const isAdmin = state.user?.role === 'administrador';
+  if (!isAdmin && state.isCreateUserVisible) {
+    state.isCreateUserVisible = false;
+  }
+  const shouldShow = isAdmin && state.isCreateUserVisible;
+  if (userCreateContainer) {
+    userCreateContainer.classList.toggle('hidden', !shouldShow);
+    userCreateContainer.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+  }
+  if (toggleCreateUserButton) {
+    toggleCreateUserButton.classList.toggle('hidden', !isAdmin);
+    toggleCreateUserButton.disabled = !isAdmin;
+    toggleCreateUserButton.setAttribute('aria-expanded', shouldShow ? 'true' : 'false');
+    toggleCreateUserButton.textContent = shouldShow ? 'Ocultar formulario' : 'Registrar usuario';
+  }
+  if (createUserForm) {
+    const elements = createUserForm.querySelectorAll('input, select, button, textarea');
+    elements.forEach((element) => {
+      if (element.tagName === 'BUTTON') {
+        const isLoading = element.dataset.loading === 'true';
+        element.disabled = !isAdmin || isLoading;
+      } else {
+        element.disabled = !isAdmin;
+      }
+    });
+  }
+  if (!isAdmin) {
+    resetCreateUserForm();
+  }
+}
+
+async function handleCreateUser(event) {
+  event.preventDefault();
+  if (!state.user || state.user.role !== 'administrador') {
+    showToast('Solo los administradores pueden crear usuarios.', 'error');
+    return;
+  }
+  const username = newUserUsernameInput?.value?.trim() || '';
+  if (!username) {
+    showToast('Ingresa un nombre de usuario.', 'error');
+    if (newUserUsernameInput) {
+      newUserUsernameInput.focus();
+    }
+    return;
+  }
+  const fullName = newUserFullNameInput?.value?.trim() || '';
+  if (!fullName) {
+    showToast('Ingresa el nombre completo.', 'error');
+    if (newUserFullNameInput) {
+      newUserFullNameInput.focus();
+    }
+    return;
+  }
+  const passwordRaw = newUserPasswordInput?.value || '';
+  const password = passwordRaw.trim();
+  if (!password) {
+    showToast('Ingresa una contraseña temporal.', 'error');
+    if (newUserPasswordInput) {
+      newUserPasswordInput.focus();
+    }
+    return;
+  }
+  const selectedRole = newUserRoleSelect?.value || DEFAULT_NEW_USER_ROLE;
+  const role = USER_ROLE_OPTIONS.some((option) => option.value === selectedRole)
+    ? selectedRole
+    : DEFAULT_NEW_USER_ROLE;
+  const submitButton = createUserForm?.querySelector('button[type="submit"]');
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.dataset.loading = 'true';
+  }
+  try {
+    await apiFetch('/users', {
+      method: 'POST',
+      body: {
+        username,
+        full_name: fullName,
+        password,
+        role,
+      },
+    });
+    showToast('Usuario creado correctamente.', 'success');
+    resetCreateUserForm();
+    if (newUserUsernameInput) {
+      newUserUsernameInput.focus();
+    }
+    await loadUsers();
+    if (role === 'sastre') {
+      await loadTailors();
+    } else if (role === 'vendedor') {
+      await loadVendors();
+    }
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    if (submitButton) {
+      delete submitButton.dataset.loading;
+      submitButton.disabled = state.user?.role !== 'administrador';
+    }
+    updateUserCreationForm();
+  }
+}
+
+async function handleEditUserSubmit(event) {
+  event.preventDefault();
+  if (!state.user || state.user.role !== 'administrador') {
+    showToast('Solo los administradores pueden editar usuarios.', 'error');
+    return;
+  }
+  const editingId = state.editingUserId;
+  if (!editingId) {
+    showToast('Selecciona un usuario para editar.', 'error');
+    return;
+  }
+  const editingUser = state.users.find((user) => user.id === editingId);
+  if (!editingUser) {
+    showToast('El usuario seleccionado ya no está disponible.', 'error');
+    cancelUserEdit();
+    return;
+  }
+  const fullName = editUserFullNameInput?.value?.trim() || '';
+  if (!fullName) {
+    showToast('Ingresa el nombre completo.', 'error');
+    editUserFullNameInput?.focus();
+    return;
+  }
+  const selectedRole = editUserRoleSelect?.value || editingUser.role;
+  const normalizedRole = USER_ROLE_OPTIONS.some((option) => option.value === selectedRole)
+    ? selectedRole
+    : editingUser.role;
+  const passwordRaw = editUserPasswordInput?.value || '';
+  const password = passwordRaw.trim();
+  const payload = {};
+  if (fullName !== (editingUser.full_name || '')) {
+    payload.full_name = fullName;
+  }
+  if (normalizedRole && normalizedRole !== editingUser.role) {
+    payload.role = normalizedRole;
+  }
+  if (password) {
+    payload.password = password;
+  }
+  if (!Object.keys(payload).length) {
+    showToast('No hay cambios para guardar.', 'info');
+    return;
+  }
+  const submitButton = editUserForm?.querySelector('button[type="submit"]');
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.dataset.loading = 'true';
+  }
+  const previousRole = editingUser.role;
+  try {
+    await apiFetch(`/users/${editingUser.id}`, {
+      method: 'PATCH',
+      body: payload,
+    });
+    showToast('Usuario actualizado correctamente.', 'success');
+    cancelUserEdit({ focusTable: false });
+    await loadUsers();
+    const updatedUser = state.users.find((user) => user.id === editingUser.id);
+    const updatedRole = updatedUser?.role || payload.role || previousRole;
+    if (previousRole !== updatedRole) {
+      if (previousRole === 'sastre' || updatedRole === 'sastre') {
+        await loadTailors();
+      }
+      if (previousRole === 'vendedor' || updatedRole === 'vendedor') {
+        await loadVendors();
+      }
+    }
+  } catch (error) {
+    showToast(error.message, 'error');
+    updateUserEditForm();
+  } finally {
+    if (submitButton) {
+      delete submitButton.dataset.loading;
+      submitButton.disabled = state.user?.role !== 'administrador';
+    }
+    if (editUserPasswordInput) {
+      editUserPasswordInput.value = '';
+    }
+  }
 }
 
 
@@ -3442,6 +3887,8 @@ function initialise() {
   if (customerMeasurementsContainer && !customerMeasurementsContainer.children.length) {
     createMeasurementSetBlock(customerMeasurementsContainer);
   }
+  resetCreateUserForm();
+  updateUserCreationForm();
 }
 
 initialise();
