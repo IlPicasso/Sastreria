@@ -77,6 +77,14 @@
             <button
               type="button"
               class="dashboard-tab"
+              data-tab="orderKanbanPanel"
+              id="orderKanbanTabButton"
+            >
+              Kanban de órdenes
+            </button>
+            <button
+              type="button"
+              class="dashboard-tab"
               data-tab="orderCreatePanel"
               id="orderCreateTabButton"
             >
@@ -493,6 +501,39 @@
                 </div>
               </form>
             </div>
+          </section>
+
+          <section class="card dashboard-panel hidden" id="orderKanbanPanel">
+            <div class="kanban-header">
+              <div>
+                <h3>Kanban de órdenes</h3>
+                <p class="muted small">
+                  Visualiza las órdenes agrupadas por estado y refresca el tablero para obtener los
+                  datos más recientes.
+                </p>
+              </div>
+              <div class="kanban-actions">
+                <button type="button" class="secondary" id="orderKanbanRefreshButton">
+                  Actualizar tablero
+                </button>
+              </div>
+            </div>
+            <div class="kanban-controls">
+              <div class="kanban-search">
+                <label for="orderKanbanSearchInput">Buscar</label>
+                <input
+                  type="search"
+                  id="orderKanbanSearchInput"
+                  placeholder="Número de orden, cliente o cédula"
+                  autocomplete="off"
+                />
+              </div>
+              <p class="muted small">
+                La búsqueda se aplica localmente sobre los resultados cargados en el tablero.
+              </p>
+            </div>
+            <div id="orderKanbanStatus" class="kanban-status muted hidden" aria-live="polite"></div>
+            <div id="orderKanbanColumns" class="kanban-board" aria-live="polite"></div>
           </section>
 
           <section class="card dashboard-panel hidden" id="usersPanel">
