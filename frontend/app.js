@@ -874,6 +874,21 @@ function populateTailorSelect(selectElement, selectedId = '') {
   });
 }
 
+function populateNewOrderTaskResponsibles() {
+  if (!newOrderTasksList) return;
+
+  const responsibleSelects = newOrderTasksList.querySelectorAll(
+    'select[data-role="task-responsible"], select[data-field="responsible"]'
+  );
+
+  if (!responsibleSelects.length) return;
+
+  responsibleSelects.forEach((selectElement) => {
+    const selectedValue = selectElement.value || '';
+    populateTailorSelect(selectElement, selectedValue);
+  });
+}
+
 function populateEstablishmentSelect(selectElement, selectedValue = '') {
   if (!selectElement) return;
   const normalizedSelected = selectedValue || '';
