@@ -1030,14 +1030,21 @@ th {
 .status-badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
   padding: 0.25rem 0.65rem;
   border-radius: 999px;
   font-size: 0.85rem;
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.25;
   background: rgba(31, 122, 140, 0.12);
   color: var(--primary-dark);
-  white-space: nowrap;
+  text-align: center;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .status-badge.status-neutral {
