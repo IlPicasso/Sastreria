@@ -58,6 +58,11 @@ class User(Base):
         back_populates="assigned_tailor",
         foreign_keys="Order.assigned_tailor_id",
     )
+    sales_orders = relationship(
+        "Order",
+        back_populates="assigned_vendor",
+        foreign_keys="Order.assigned_vendor_id",
+    )
 
 
 class Order(Base):
@@ -75,6 +80,7 @@ class Order(Base):
     measurements = Column(JSON, nullable=False, default=list)
     notes = Column(Text, nullable=True)
     assigned_tailor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    assigned_vendor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     delivery_date = Column(Date, nullable=True)
     origin_branch = Column(Enum(Establishment), nullable=True)
     invoice_number = Column(String(50), nullable=True)
@@ -86,7 +92,16 @@ class Order(Base):
         nullable=False,
     )
 
-    assigned_tailor = relationship("User", back_populates="assigned_orders")
+    assigned_tailor = relationship(
+        "User",
+        back_populates="assigned_orders",
+        foreign_keys=[assigned_tailor_id],
+    )
+    assigned_vendor = relationship(
+        "User",
+        back_populates="sales_orders",
+        foreign_keys=[assigned_vendor_id],
+    )
     customer = relationship("Customer", back_populates="orders")
     tasks = relationship(
         "OrderTask",

@@ -58,6 +58,7 @@ def serialize_order(order: Optional[models.Order]) -> Optional[Dict[str, Any]]:
         "measurements": order.measurements,
         "notes": order.notes,
         "assigned_tailor_id": order.assigned_tailor_id,
+        "assigned_vendor_id": order.assigned_vendor_id,
         "delivery_date": order.delivery_date.isoformat() if order.delivery_date else None,
         "invoice_number": order.invoice_number,
         "origin_branch": order.origin_branch.value if order.origin_branch else None,
@@ -308,6 +309,7 @@ def create_order(db: Session, order_in: schemas.OrderCreate) -> models.Order:
         measurements=_measurements_to_dicts(order_in.measurements),
         notes=order_in.notes,
         assigned_tailor_id=order_in.assigned_tailor_id,
+        assigned_vendor_id=order_in.assigned_vendor_id,
         delivery_date=order_in.delivery_date,
         invoice_number=order_in.invoice_number,
         origin_branch=order_in.origin_branch,
@@ -338,6 +340,7 @@ def get_order(db: Session, order_id: int) -> Optional[models.Order]:
         db.query(models.Order)
         .options(
             joinedload(models.Order.assigned_tailor),
+            joinedload(models.Order.assigned_vendor),
             joinedload(models.Order.customer).joinedload(models.Customer.measurements),
         )
         .filter(models.Order.id == order_id)
@@ -377,6 +380,7 @@ def get_orders(
     items_query = (
         query.options(
             joinedload(models.Order.assigned_tailor),
+            joinedload(models.Order.assigned_vendor),
             joinedload(models.Order.customer).joinedload(models.Customer.measurements),
         )
         .order_by(models.Order.created_at.desc())

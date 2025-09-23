@@ -86,6 +86,14 @@
             <button
               type="button"
               class="dashboard-tab admin-only hidden"
+              data-tab="usersPanel"
+              id="usersTabButton"
+            >
+              Usuarios
+            </button>
+            <button
+              type="button"
+              class="dashboard-tab admin-only hidden"
               data-tab="auditLogPanel"
               id="auditLogTabButton"
             >
@@ -312,6 +320,12 @@
                   <option value="">Sin asignar</option>
                 </select>
               </div>
+              <div class="form-row">
+                <label for="assignVendor">Asignar a vendedor</label>
+                <select id="assignVendor">
+                  <option value="">Sin asignar</option>
+                </select>
+              </div>
               <button type="submit" class="primary">Guardar orden</button>
             </form>
           </section>
@@ -428,6 +442,10 @@
                   <select id="orderDetailTailor"></select>
                 </div>
                 <div class="form-row">
+                  <label for="orderDetailVendor">Vendedor asignado</label>
+                  <select id="orderDetailVendor"></select>
+                </div>
+                <div class="form-row">
                   <label for="orderDetailOrigin">Establecimiento remitente</label>
                   <select id="orderDetailOrigin"></select>
                 </div>
@@ -474,6 +492,23 @@
                   <button type="submit" class="primary">Guardar cambios</button>
                 </div>
               </form>
+            </div>
+          </section>
+
+          <section class="card dashboard-panel hidden" id="usersPanel">
+            <h3>Usuarios registrados</h3>
+            <p class="muted small">Consulta los usuarios autorizados y su rol dentro del sistema.</p>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Usuario</th>
+                    <th>Nombre completo</th>
+                    <th>Rol</th>
+                  </tr>
+                </thead>
+                <tbody id="usersTableBody"></tbody>
+              </table>
             </div>
           </section>
 
