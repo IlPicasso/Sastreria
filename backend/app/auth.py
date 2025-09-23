@@ -1,6 +1,8 @@
 from datetime import timedelta
+from types import SimpleNamespace
 from typing import Optional
 
+import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
@@ -13,6 +15,9 @@ from . import models, schemas
 from .timezone import now
 
 settings = get_settings()
+
+if not hasattr(bcrypt, "__about__"):
+    bcrypt.__about__ = SimpleNamespace(__version__=getattr(bcrypt, "__version__", ""))
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
