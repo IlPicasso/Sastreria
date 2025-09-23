@@ -11,6 +11,7 @@ const state = {
   token: null,
   user: null,
   tailors: [],
+  vendors: [],
   orders: [],
   customers: [],
   customerOptions: [],
@@ -26,6 +27,9 @@ const state = {
   orderTotal: 0,
   isCreateCustomerVisible: false,
   auditLogs: [],
+  users: [],
+  usersLoaded: false,
+  usersLoadError: null,
   selectedCustomerId: null,
   selectedOrderId: null,
   orderTasks: [],
@@ -137,6 +141,7 @@ const newOrderTasksList = document.getElementById('newOrderTasksList');
 const addOrderTaskButton = document.getElementById('addOrderTaskButton');
 const statusSelect = document.getElementById('newOrderStatus');
 const assignTailorSelect = document.getElementById('assignTailor');
+const assignVendorSelect = document.getElementById('assignVendor');
 const newOrderInvoiceInput = document.getElementById('newOrderInvoice');
 const newOrderOriginSelect = document.getElementById('newOrderOrigin');
 const newOrderDeliveryDateInput = document.getElementById('newOrderDeliveryDate');
@@ -150,6 +155,7 @@ const orderDetailDocumentInput = document.getElementById('orderDetailDocument');
 const orderDetailContactInput = document.getElementById('orderDetailContact');
 const orderDetailStatusSelect = document.getElementById('orderDetailStatus');
 const orderDetailTailorSelect = document.getElementById('orderDetailTailor');
+const orderDetailVendorSelect = document.getElementById('orderDetailVendor');
 const orderDetailInvoiceInput = document.getElementById('orderDetailInvoice');
 const orderDetailOriginSelect = document.getElementById('orderDetailOrigin');
 const orderDetailDeliveryDateInput = document.getElementById('orderDetailDeliveryDate');
@@ -165,8 +171,10 @@ const toastElement = document.getElementById('toast');
 const currentYearElement = document.getElementById('currentYear');
 const currentUserNameElement = document.getElementById('currentUserName');
 const currentUserRoleElement = document.getElementById('currentUserRole');
+const usersTabButton = document.getElementById('usersTabButton');
 const auditLogTabButton = document.getElementById('auditLogTabButton');
 const auditLogTableBody = document.getElementById('auditLogTableBody');
+const usersTableBody = document.getElementById('usersTableBody');
 const closeCustomerDetailButton = document.getElementById('closeCustomerDetailButton');
 
 const ROLE_LABELS = {
@@ -243,6 +251,9 @@ function setActiveDashboardTab(tabId = 'orderListPanel') {
   if (targetTab === 'orderCreatePanel' && userRole === 'sastre') {
     targetTab = 'orderListPanel';
   }
+  if (targetTab === 'usersPanel' && userRole !== 'administrador') {
+    targetTab = 'orderListPanel';
+  }
   activeDashboardTab = targetTab;
   dashboardTabButtons.forEach((btn) => {
     const tab = btn.dataset.tab;
@@ -255,15 +266,29 @@ function setActiveDashboardTab(tabId = 'orderListPanel') {
       }
       btn.disabled = shouldHideTab;
     }
+    if (tab === 'usersPanel') {
+      const shouldHideUsersTab = userRole !== 'administrador';
+      if (shouldHideUsersTab) {
+        btn.classList.add('hidden');
+      } else {
+        btn.classList.remove('hidden');
+      }
+      btn.disabled = shouldHideUsersTab;
+    }
     btn.classList.toggle('active', tab === targetTab);
   });
   dashboardPanels.forEach((panel) => {
     if (panel.id === 'orderCreatePanel' && userRole === 'sastre') {
       panel.classList.add('hidden');
+    } else if (panel.id === 'usersPanel' && userRole !== 'administrador') {
+      panel.classList.add('hidden');
     } else {
       panel.classList.toggle('hidden', panel.id !== targetTab);
     }
   });
+  if (targetTab === 'usersPanel' && userRole === 'administrador') {
+    loadUsers();
+  }
   syncCreateOrderFormDisabled();
 }
 
@@ -874,6 +899,33 @@ function populateTailorSelect(selectElement, selectedId = '') {
   });
 }
 
+function populateVendorSelect(selectElement, selectedId = '', selectedLabel = '') {
+  if (!selectElement) return;
+  selectElement.innerHTML = '';
+  const emptyOption = document.createElement('option');
+  emptyOption.value = '';
+  emptyOption.textContent = 'Sin asignar';
+  selectElement.appendChild(emptyOption);
+  let hasSelected = false;
+  state.vendors.forEach((vendor) => {
+    const option = document.createElement('option');
+    option.value = String(vendor.id);
+    option.textContent = vendor.full_name;
+    if (selectedId && String(selectedId) === String(vendor.id)) {
+      option.selected = true;
+      hasSelected = true;
+    }
+    selectElement.appendChild(option);
+  });
+  if (selectedId && !hasSelected) {
+    const fallbackOption = document.createElement('option');
+    fallbackOption.value = String(selectedId);
+    fallbackOption.textContent = selectedLabel || 'Vendedor seleccionado';
+    fallbackOption.selected = true;
+    selectElement.appendChild(fallbackOption);
+  }
+}
+
 function populateNewOrderTaskResponsibles() {
   if (!newOrderTasksList) return;
 
@@ -1220,6 +1272,10 @@ function resetCreateOrderForm() {
   createOrderForm.reset();
   populateStatusSelect(statusSelect);
   populateTailorSelect(assignTailorSelect);
+  const defaultVendorId =
+    state.user?.role === 'vendedor' && state.user?.id ? String(state.user.id) : '';
+  const defaultVendorLabel = defaultVendorId ? state.user?.full_name || '' : '';
+  populateVendorSelect(assignVendorSelect, defaultVendorId, defaultVendorLabel);
   populateEstablishmentSelect(newOrderOriginSelect);
   populateCustomerSelect(orderCustomerSelect);
   const documentInput = document.getElementById('newCustomerDocument');
@@ -1346,6 +1402,9 @@ function updateUserInfo() {
   if (auditLogTabButton) {
     auditLogTabButton.classList.toggle('hidden', !isAdmin);
   }
+  if (usersTabButton) {
+    usersTabButton.classList.toggle('hidden', !isAdmin);
+  }
   const isTailor = state.user.role === 'sastre';
   if (orderCreateTabButton) {
     if (isTailor) {
@@ -1414,11 +1473,18 @@ async function bootstrapAuthenticatedSession({ showWelcomeToast = false } = {}) 
   updateUserInfo();
   await loadStatuses();
   await loadTailors();
+  await loadVendors();
   await loadCustomers();
   await refreshCustomerOptions();
   await loadOrders();
   if (state.user?.role === 'administrador') {
+    await loadUsers();
     await loadAuditLogs();
+  } else {
+    state.users = [];
+    state.usersLoaded = false;
+    state.usersLoadError = null;
+    renderUsers();
   }
 
   setCreateCustomerVisible(false);
@@ -1492,6 +1558,52 @@ async function loadTailors() {
         ? state.orders.find((order) => order.id === state.selectedOrderId)?.assigned_tailor?.id ?? ''
         : '');
     populateTailorSelect(orderDetailTailorSelect, selectedValue);
+  }
+}
+
+async function loadVendors() {
+  if (!state.token) return;
+  const role = state.user?.role;
+  if (role !== 'administrador' && role !== 'vendedor') {
+    state.vendors = [];
+    populateVendorSelect(assignVendorSelect);
+    if (orderDetailVendorSelect) {
+      const selectedDetailValue =
+        state.selectedOrderId !== null
+          ? state.orders.find((order) => order.id === state.selectedOrderId)?.assigned_vendor?.id ?? ''
+          : '';
+      const selectedDetailLabel =
+        state.selectedOrderId !== null
+          ? state.orders.find((order) => order.id === state.selectedOrderId)?.assigned_vendor?.full_name || ''
+          : '';
+      populateVendorSelect(orderDetailVendorSelect, selectedDetailValue, selectedDetailLabel);
+    }
+    return;
+  }
+  try {
+    state.vendors = await apiFetch('/users/vendors');
+  } catch (error) {
+    state.vendors = [];
+    showToast(error.message, 'error');
+  }
+  let selectedCreateValue = assignVendorSelect?.value || '';
+  let selectedCreateLabel = '';
+  if (!selectedCreateValue && state.user?.role === 'vendedor' && state.user?.id) {
+    selectedCreateValue = String(state.user.id);
+    selectedCreateLabel = state.user?.full_name || '';
+  }
+  populateVendorSelect(assignVendorSelect, selectedCreateValue, selectedCreateLabel);
+  if (orderDetailVendorSelect) {
+    let selectedDetailValue = orderDetailVendorSelect.value || '';
+    let selectedDetailLabel = '';
+    if (!selectedDetailValue && state.selectedOrderId !== null) {
+      const activeOrder = state.orders.find((order) => order.id === state.selectedOrderId);
+      if (activeOrder?.assigned_vendor?.id) {
+        selectedDetailValue = String(activeOrder.assigned_vendor.id);
+        selectedDetailLabel = activeOrder.assigned_vendor.full_name || '';
+      }
+    }
+    populateVendorSelect(orderDetailVendorSelect, selectedDetailValue, selectedDetailLabel);
   }
 }
 
@@ -1690,6 +1802,26 @@ async function loadAuditLogs() {
   }
 }
 
+async function loadUsers() {
+  if (!state.token || state.user?.role !== 'administrador') {
+    return;
+  }
+  state.usersLoadError = null;
+  state.usersLoaded = false;
+  renderUsers();
+  try {
+    state.users = await apiFetch('/users');
+    state.usersLoaded = true;
+    state.usersLoadError = null;
+  } catch (error) {
+    state.users = [];
+    state.usersLoaded = false;
+    state.usersLoadError = error.message || 'No se pudieron cargar los usuarios.';
+    showToast(error.message, 'error');
+  }
+  renderUsers();
+}
+
 async function loadCurrentUser() {
   state.user = await apiFetch('/users/me');
 }
@@ -1700,6 +1832,7 @@ function handleLogout(auto = false) {
   state.user = null;
   state.orders = [];
   state.tailors = [];
+  state.vendors = [];
   state.customers = [];
   state.customerOptions = [];
   state.customerOrdersCache = {};
@@ -1723,6 +1856,9 @@ function handleLogout(auto = false) {
   state.customerRequestId = 0;
   state.orderRequestId = 0;
   state.customerOptionsRequestId = 0;
+  state.users = [];
+  state.usersLoaded = false;
+  state.usersLoadError = null;
   if (currentUserNameElement) {
     currentUserNameElement.textContent = '';
   }
@@ -1731,6 +1867,9 @@ function handleLogout(auto = false) {
   }
   if (assignTailorSelect) {
     populateTailorSelect(assignTailorSelect);
+  }
+  if (assignVendorSelect) {
+    populateVendorSelect(assignVendorSelect);
   }
   if (orderTaskDescriptionInput) {
     orderTaskDescriptionInput.value = '';
@@ -1741,6 +1880,9 @@ function handleLogout(auto = false) {
   }
   if (auditLogTabButton) {
     auditLogTabButton.classList.add('hidden');
+  }
+  if (usersTabButton) {
+    usersTabButton.classList.add('hidden');
   }
   setActiveDashboardTab('orderListPanel');
   hideDashboard();
@@ -1759,6 +1901,9 @@ function handleLogout(auto = false) {
   setCreateCustomerVisible(false);
   if (ordersTableBody) {
     ordersTableBody.innerHTML = '';
+  }
+  if (orderDetailVendorSelect) {
+    populateVendorSelect(orderDetailVendorSelect);
   }
   if (customersTableBody) {
     customersTableBody.innerHTML = '';
@@ -1796,6 +1941,7 @@ function handleLogout(auto = false) {
   });
   updateNavigationForAuth();
   setActiveView('staff-view');
+  renderUsers();
   renderOrderTasks();
   if (auto) {
     showToast('La sesión ha expirado, vuelve a iniciar sesión.', 'error');
@@ -2301,6 +2447,13 @@ function populateOrderDetail(order, options = {}) {
   if (orderDetailTailorSelect) {
     populateTailorSelect(orderDetailTailorSelect, order.assigned_tailor?.id ?? '');
   }
+  if (orderDetailVendorSelect) {
+    populateVendorSelect(
+      orderDetailVendorSelect,
+      order.assigned_vendor?.id ?? '',
+      order.assigned_vendor?.full_name || '',
+    );
+  }
   if (orderDetailInvoiceInput) {
     orderDetailInvoiceInput.value = order.invoice_number || '';
   }
@@ -2357,6 +2510,7 @@ function clearOrderDetail(options = {}) {
   if (orderDetailContactInput) orderDetailContactInput.value = '';
   if (orderDetailStatusSelect) populateStatusSelect(orderDetailStatusSelect);
   if (orderDetailTailorSelect) populateTailorSelect(orderDetailTailorSelect);
+  if (orderDetailVendorSelect) populateVendorSelect(orderDetailVendorSelect);
   if (orderDetailInvoiceInput) orderDetailInvoiceInput.value = '';
   if (orderDetailOriginSelect) populateEstablishmentSelect(orderDetailOriginSelect);
   if (orderDetailDeliveryDateInput) orderDetailDeliveryDateInput.value = '';
@@ -2404,6 +2558,9 @@ async function handleOrderUpdate(event) {
         status: orderDetailStatusSelect?.value,
         assigned_tailor_id: orderDetailTailorSelect?.value
           ? Number(orderDetailTailorSelect.value)
+          : null,
+        assigned_vendor_id: orderDetailVendorSelect?.value
+          ? Number(orderDetailVendorSelect.value)
           : null,
         customer_contact: orderDetailContactInput?.value.trim() || null,
         notes: orderDetailNotesTextarea?.value.trim() || null,
@@ -2676,6 +2833,7 @@ async function createOrder(event) {
   const newOrderDeliveryDate = normalizeDateForApi(newOrderDeliveryDateRaw);
   const newOrderNotes = document.getElementById('newOrderNotes').value.trim();
   const assignedTailorId = assignTailorSelect.value ? Number(assignTailorSelect.value) : null;
+  const assignedVendorId = assignVendorSelect?.value ? Number(assignVendorSelect.value) : null;
   const invoiceNumber = newOrderInvoiceInput?.value.trim() || '';
   const originBranch = newOrderOriginSelect?.value || '';
   const measurements = collectMeasurements();
@@ -2717,6 +2875,7 @@ async function createOrder(event) {
         notes: newOrderNotes || null,
         measurements,
         assigned_tailor_id: assignedTailorId,
+        assigned_vendor_id: assignedVendorId,
         delivery_date: newOrderDeliveryDate ? newOrderDeliveryDate : null,
         invoice_number: invoiceNumber || null,
         origin_branch: originBranch,
@@ -3130,6 +3289,64 @@ function renderOrders() {
   if (!hasActiveDetail && orderDetail) {
     orderDetail.classList.add('hidden');
   }
+}
+
+
+function renderUsers() {
+  if (!usersTableBody) return;
+  usersTableBody.innerHTML = '';
+
+  const appendMessageRow = (message) => {
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = 3;
+    cell.className = 'muted';
+    cell.textContent = message;
+    row.appendChild(cell);
+    usersTableBody.appendChild(row);
+  };
+
+  if (!state.user || state.user.role !== 'administrador') {
+    appendMessageRow('Inicia sesión como administrador para ver los usuarios.');
+    return;
+  }
+
+  if (state.usersLoadError) {
+    appendMessageRow(state.usersLoadError);
+    return;
+  }
+
+  if (!state.usersLoaded) {
+    appendMessageRow('Cargando usuarios...');
+    return;
+  }
+
+  if (!state.users.length) {
+    appendMessageRow('No hay usuarios registrados.');
+    return;
+  }
+
+  state.users.forEach((user) => {
+    const row = document.createElement('tr');
+
+    const usernameCell = document.createElement('td');
+    usernameCell.dataset.label = 'Usuario';
+    usernameCell.textContent = user.username;
+
+    const nameCell = document.createElement('td');
+    nameCell.dataset.label = 'Nombre completo';
+    nameCell.textContent = user.full_name;
+
+    const roleCell = document.createElement('td');
+    roleCell.dataset.label = 'Rol';
+    roleCell.textContent = ROLE_LABELS[user.role] || user.role;
+
+    row.appendChild(usernameCell);
+    row.appendChild(nameCell);
+    row.appendChild(roleCell);
+
+    usersTableBody.appendChild(row);
+  });
 }
 
 

@@ -76,6 +76,27 @@ def _validate_assigned_tailor(
     return tailor
 
 
+def _validate_assigned_vendor(
+    db: Session, assigned_vendor_id: Optional[int]
+) -> Optional[models.User]:
+    """Ensure the provided vendor id exists and belongs to a vendor user."""
+
+    if assigned_vendor_id is None:
+        return None
+    vendor = crud.get_user(db, assigned_vendor_id)
+    if not vendor:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El vendedor asignado no existe",
+        )
+    if vendor.role != models.UserRole.VENDEDOR:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El usuario asignado no es un vendedor",
+        )
+    return vendor
+
+
 def _get_order_or_404(db: Session, order_id: int) -> models.Order:
     order = crud.get_order(db, order_id)
     if not order:
@@ -149,6 +170,15 @@ def read_tailors(
 ):
     _ = current_user
     return crud.get_users(db, role=models.UserRole.SASTRE)
+
+
+@app.get("/users/vendors", response_model=List[schemas.UserOut])
+def read_vendors(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(vendor_or_admin_required()),
+):
+    _ = current_user
+    return crud.get_users(db, role=models.UserRole.VENDEDOR)
 
 
 @app.patch("/users/{user_id}", response_model=schemas.UserOut)
@@ -405,6 +435,14 @@ def create_order_endpoint(
     if order_data.get("customer_contact") in (None, ""):
         order_data["customer_contact"] = customer.phone
     _validate_assigned_tailor(db, order_data.get("assigned_tailor_id"))
+    assigned_vendor_id = order_data.get("assigned_vendor_id")
+    if assigned_vendor_id is None and current_user.role == models.UserRole.VENDEDOR:
+        assigned_vendor_id = current_user.id
+        order_data["assigned_vendor_id"] = assigned_vendor_id
+    else:
+        order_data["assigned_vendor_id"] = assigned_vendor_id
+    if order_data.get("assigned_vendor_id") is not None:
+        _validate_assigned_vendor(db, order_data["assigned_vendor_id"])
     order = crud.create_order(db, schemas.OrderCreate(**order_data))
     crud.create_audit_log(
         db,
@@ -453,6 +491,8 @@ def update_order_endpoint(
             update_data["customer_contact"] = new_customer.phone
     if "assigned_tailor_id" in update_data:
         _validate_assigned_tailor(db, update_data["assigned_tailor_id"])
+    if "assigned_vendor_id" in update_data:
+        _validate_assigned_vendor(db, update_data["assigned_vendor_id"])
     before = crud.serialize_order(order)
     updated_order = crud.update_order(db, order, schemas.OrderUpdate(**update_data))
     crud.create_audit_log(
