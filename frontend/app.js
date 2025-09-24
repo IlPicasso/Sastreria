@@ -1108,6 +1108,98 @@ function addMeasurementRow(data = { nombre: '', valor: '' }) {
   measurementsList.appendChild(row);
 }
 
+function highlightMeasurementRow(row) {
+  if (!row) return;
+  row.classList.add('is-highlighted');
+  setTimeout(() => {
+    row.classList.remove('is-highlighted');
+  }, 1500);
+}
+
+function ensureAvailableMeasurementSlot() {
+  if (!measurementsList) return;
+  const rows = Array.from(measurementsList.querySelectorAll('.measurement-row'));
+  const hasEmptyRow = rows.some((row) => {
+    const nameInput = row.querySelector('input[data-field="nombre"]');
+    const valueInput = row.querySelector('input[data-field="valor"]');
+    return (
+      nameInput &&
+      valueInput &&
+      !nameInput.value.trim() &&
+      !valueInput.value.trim()
+    );
+  });
+  if (!hasEmptyRow) {
+    addMeasurementRow();
+  }
+}
+
+function applyMeasurementToOrder(measurement) {
+  if (!measurementsList) {
+    return false;
+  }
+  if (!measurement) {
+    return false;
+  }
+  const nombreSource = measurement.nombre;
+  const valorSource = measurement.valor;
+  const nombre =
+    typeof nombreSource === 'string'
+      ? nombreSource.trim()
+      : nombreSource !== null && nombreSource !== undefined
+        ? nombreSource.toString().trim()
+        : '';
+  const valor =
+    typeof valorSource === 'string'
+      ? valorSource.trim()
+      : valorSource !== null && valorSource !== undefined
+        ? valorSource.toString().trim()
+        : '';
+  if (!nombre || !valor) {
+    return false;
+  }
+
+  const rows = Array.from(measurementsList.querySelectorAll('.measurement-row'));
+  let targetRow = rows.find((row) => {
+    const nameInput = row.querySelector('input[data-field="nombre"]');
+    const valueInput = row.querySelector('input[data-field="valor"]');
+    return (
+      nameInput &&
+      valueInput &&
+      !nameInput.value.trim() &&
+      !valueInput.value.trim()
+    );
+  });
+
+  if (!targetRow) {
+    addMeasurementRow({ nombre, valor });
+    targetRow = measurementsList.lastElementChild;
+  }
+
+  if (!targetRow) {
+    return false;
+  }
+
+  const nameInput = targetRow.querySelector('input[data-field="nombre"]');
+  const valueInput = targetRow.querySelector('input[data-field="valor"]');
+  if (!nameInput || !valueInput) {
+    return false;
+  }
+
+  nameInput.value = nombre;
+  valueInput.value = valor;
+
+  nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+  valueInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+  ensureAvailableMeasurementSlot();
+  highlightMeasurementRow(targetRow);
+  if (typeof targetRow.scrollIntoView === 'function') {
+    targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  return true;
+}
+
 function ensureMeasurementRow() {
   if (measurementsList && measurementsList.children.length === 0) {
     addMeasurementRow();
@@ -1410,10 +1502,20 @@ function renderCustomerMeasurementOptions(customer) {
     tags.className = 'measurement-tags';
     if (set.measurements?.length) {
       set.measurements.forEach((item) => {
-        const tag = document.createElement('span');
-        tag.className = 'tag';
-        tag.textContent = `${item.nombre}: ${item.valor}`;
-        tags.appendChild(tag);
+        const tagButton = document.createElement('button');
+        tagButton.type = 'button';
+        tagButton.className = 'tag measurement-tag-button';
+        tagButton.textContent = `${item.nombre}: ${item.valor}`;
+        tagButton.title = 'Copiar esta medida a la orden';
+        tagButton.addEventListener('click', () => {
+          const applied = applyMeasurementToOrder(item);
+          if (applied) {
+            showToast(`Se copió la medida "${item.nombre}" a la orden.`, 'success');
+          } else {
+            showToast('No se pudo copiar la medida. Regístrala manualmente.', 'error');
+          }
+        });
+        tags.appendChild(tagButton);
       });
     } else {
       const empty = document.createElement('span');
@@ -3377,12 +3479,52 @@ function createKanbanMetaItem(label, value) {
   return item;
 }
 
+function getOrderDetailUrl(order) {
+  if (!order || order.id === undefined || order.id === null) {
+    return null;
+  }
+  if (typeof window === 'undefined' || typeof window.location === 'undefined') {
+    return `order.html?id=${encodeURIComponent(order.id)}`;
+  }
+  try {
+    const detailUrl = new URL('order.html', window.location.href);
+    detailUrl.searchParams.set('id', order.id);
+    if (order?.order_number) {
+      detailUrl.searchParams.set('number', order.order_number);
+    }
+    return detailUrl.toString();
+  } catch (error) {
+    let fallback = `order.html?id=${encodeURIComponent(order.id)}`;
+    if (order?.order_number) {
+      fallback += `&number=${encodeURIComponent(order.order_number)}`;
+    }
+    return fallback;
+  }
+}
+
 function createKanbanCard(order) {
-  const card = document.createElement('article');
+  const detailUrl = getOrderDetailUrl(order);
+  const card = detailUrl ? document.createElement('a') : document.createElement('article');
   card.className = 'kanban-card';
   if (order?.id !== undefined && order?.id !== null) {
     card.dataset.orderId = String(order.id);
   }
+  if (detailUrl) {
+    card.href = detailUrl;
+    card.target = '_blank';
+    card.rel = 'noopener noreferrer';
+    card.classList.add('is-clickable');
+    const labelParts = [];
+    if (order?.order_number) {
+      labelParts.push(`Orden ${order.order_number}`);
+    }
+    if (order?.customer_name) {
+      labelParts.push(order.customer_name);
+    }
+    card.setAttribute('aria-label', `Abrir detalle de ${labelParts.join(' · ') || 'la orden'}`);
+    card.title = 'Abrir información de la orden en una nueva pestaña';
+  }
+
 
   const header = document.createElement('div');
   header.className = 'kanban-card-header';
