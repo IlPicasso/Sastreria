@@ -4,6 +4,10 @@ const PAGE_SIZE_OPTIONS = [10, 15, 20, 25, 30, 35, 40, 45, 50];
 const ESTABLISHMENTS = ['Urdesa', 'Batan', 'Indie'];
 const ORDER_TASK_STATUS_PENDING = 'pendiente';
 const ORDER_TASK_STATUS_COMPLETED = 'completado';
+const KANBAN_FETCH_PAGE_SIZE = 100;
+const KANBAN_FALLBACK_STATUS = 'Sin estado';
+const KANBAN_DELIVERED_RETENTION_DAYS = 4;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 
 const state = {
@@ -25,6 +29,12 @@ const state = {
   orderPageSize: DEFAULT_PAGE_SIZE,
   customerTotal: 0,
   orderTotal: 0,
+  kanbanOrders: [],
+  kanbanLoading: false,
+  kanbanError: null,
+  kanbanSearchTerm: '',
+  kanbanNeedsRefresh: true,
+  kanbanLastUpdated: null,
   isCreateCustomerVisible: false,
   isCreateUserVisible: false,
   auditLogs: [],
@@ -97,6 +107,11 @@ const dashboardTabButtons = document.querySelectorAll('.dashboard-tab');
 const dashboardPanels = document.querySelectorAll('.dashboard-panel');
 const orderCreateTabButton = document.getElementById('orderCreateTabButton');
 const orderCreatePanel = document.getElementById('orderCreatePanel');
+const orderKanbanPanel = document.getElementById('orderKanbanPanel');
+const orderKanbanColumns = document.getElementById('orderKanbanColumns');
+const orderKanbanStatus = document.getElementById('orderKanbanStatus');
+const orderKanbanSearchInput = document.getElementById('orderKanbanSearchInput');
+const orderKanbanRefreshButton = document.getElementById('orderKanbanRefreshButton');
 const orderLookupForm = document.getElementById('orderLookupForm');
 const orderNumberInput = document.getElementById('orderNumber');
 const orderDocumentInput = document.getElementById('customerDocument');
@@ -315,6 +330,11 @@ function setActiveDashboardTab(tabId = 'orderListPanel') {
   if (targetTab === 'usersPanel' && userRole === 'administrador') {
     loadUsers();
   }
+  if (targetTab === 'orderKanbanPanel') {
+    ensureKanbanDataLoaded();
+  } else {
+    renderOrderKanban();
+  }
   syncCreateOrderFormDisabled();
 }
 
@@ -428,6 +448,30 @@ function normalizeText(value) {
 
 function isOrderDelivered(status) {
   return typeof status === 'string' && status.trim().toLowerCase() === 'entregado';
+}
+
+function isDeliveredOrderExpired(order) {
+  if (!order || !isOrderDelivered(order.status)) {
+    return false;
+  }
+  const referenceDate =
+    parseDateValue(order.delivery_date) || parseDateValue(order.updated_at);
+  if (!referenceDate) {
+    return false;
+  }
+  const now = new Date();
+  const diff = now.getTime() - referenceDate.getTime();
+  return diff >= KANBAN_DELIVERED_RETENTION_DAYS * MS_PER_DAY;
+}
+
+function shouldIncludeOrderInKanban(order) {
+  if (!order) {
+    return false;
+  }
+  if (isDeliveredOrderExpired(order)) {
+    return false;
+  }
+  return true;
 }
 
 function isDeliveryDateOverdue(deliveryDateString, status) {
@@ -1090,6 +1134,98 @@ function addMeasurementRow(data = { nombre: '', valor: '' }) {
   measurementsList.appendChild(row);
 }
 
+function highlightMeasurementRow(row) {
+  if (!row) return;
+  row.classList.add('is-highlighted');
+  setTimeout(() => {
+    row.classList.remove('is-highlighted');
+  }, 1500);
+}
+
+function ensureAvailableMeasurementSlot() {
+  if (!measurementsList) return;
+  const rows = Array.from(measurementsList.querySelectorAll('.measurement-row'));
+  const hasEmptyRow = rows.some((row) => {
+    const nameInput = row.querySelector('input[data-field="nombre"]');
+    const valueInput = row.querySelector('input[data-field="valor"]');
+    return (
+      nameInput &&
+      valueInput &&
+      !nameInput.value.trim() &&
+      !valueInput.value.trim()
+    );
+  });
+  if (!hasEmptyRow) {
+    addMeasurementRow();
+  }
+}
+
+function applyMeasurementToOrder(measurement) {
+  if (!measurementsList) {
+    return false;
+  }
+  if (!measurement) {
+    return false;
+  }
+  const nombreSource = measurement.nombre;
+  const valorSource = measurement.valor;
+  const nombre =
+    typeof nombreSource === 'string'
+      ? nombreSource.trim()
+      : nombreSource !== null && nombreSource !== undefined
+        ? nombreSource.toString().trim()
+        : '';
+  const valor =
+    typeof valorSource === 'string'
+      ? valorSource.trim()
+      : valorSource !== null && valorSource !== undefined
+        ? valorSource.toString().trim()
+        : '';
+  if (!nombre || !valor) {
+    return false;
+  }
+
+  const rows = Array.from(measurementsList.querySelectorAll('.measurement-row'));
+  let targetRow = rows.find((row) => {
+    const nameInput = row.querySelector('input[data-field="nombre"]');
+    const valueInput = row.querySelector('input[data-field="valor"]');
+    return (
+      nameInput &&
+      valueInput &&
+      !nameInput.value.trim() &&
+      !valueInput.value.trim()
+    );
+  });
+
+  if (!targetRow) {
+    addMeasurementRow({ nombre, valor });
+    targetRow = measurementsList.lastElementChild;
+  }
+
+  if (!targetRow) {
+    return false;
+  }
+
+  const nameInput = targetRow.querySelector('input[data-field="nombre"]');
+  const valueInput = targetRow.querySelector('input[data-field="valor"]');
+  if (!nameInput || !valueInput) {
+    return false;
+  }
+
+  nameInput.value = nombre;
+  valueInput.value = valor;
+
+  nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+  valueInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+  ensureAvailableMeasurementSlot();
+  highlightMeasurementRow(targetRow);
+  if (typeof targetRow.scrollIntoView === 'function') {
+    targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  return true;
+}
+
 function ensureMeasurementRow() {
   if (measurementsList && measurementsList.children.length === 0) {
     addMeasurementRow();
@@ -1392,10 +1528,20 @@ function renderCustomerMeasurementOptions(customer) {
     tags.className = 'measurement-tags';
     if (set.measurements?.length) {
       set.measurements.forEach((item) => {
-        const tag = document.createElement('span');
-        tag.className = 'tag';
-        tag.textContent = `${item.nombre}: ${item.valor}`;
-        tags.appendChild(tag);
+        const tagButton = document.createElement('button');
+        tagButton.type = 'button';
+        tagButton.className = 'tag measurement-tag-button';
+        tagButton.textContent = `${item.nombre}: ${item.valor}`;
+        tagButton.title = 'Copiar esta medida a la orden';
+        tagButton.addEventListener('click', () => {
+          const applied = applyMeasurementToOrder(item);
+          if (applied) {
+            showToast(`Se copió la medida "${item.nombre}" a la orden.`, 'success');
+          } else {
+            showToast('No se pudo copiar la medida. Regístrala manualmente.', 'error');
+          }
+        });
+        tags.appendChild(tagButton);
       });
     } else {
       const empty = document.createElement('span');
@@ -1687,6 +1833,89 @@ async function loadOrders({ page, pageSize } = {}) {
   }
 }
 
+async function loadKanbanOrders({ force = false } = {}) {
+  if (!state.token) {
+    state.kanbanOrders = [];
+    state.kanbanLastUpdated = null;
+    state.kanbanNeedsRefresh = true;
+    renderOrderKanban();
+    return;
+  }
+
+  if (state.kanbanLoading) {
+    return;
+  }
+
+  if (!force && !state.kanbanNeedsRefresh && state.kanbanOrders.length) {
+    renderOrderKanban();
+    return;
+  }
+
+  state.kanbanLoading = true;
+  state.kanbanError = null;
+  renderOrderKanban();
+
+  const collected = [];
+  let page = 1;
+  let total = 0;
+
+  try {
+    while (true) {
+      const params = new URLSearchParams({
+        page: String(page),
+        page_size: String(KANBAN_FETCH_PAGE_SIZE),
+      });
+      const response = await apiFetch(`/orders?${params.toString()}`);
+      const items = Array.isArray(response?.items) ? response.items : [];
+      const reportedTotal = typeof response?.total === 'number' ? response.total : total;
+      if (reportedTotal) {
+        total = reportedTotal;
+      }
+      collected.push(...items);
+      if (collected.length >= total || !items.length) {
+        break;
+      }
+      page += 1;
+    }
+
+    const filteredOrders = collected.filter(shouldIncludeOrderInKanban);
+    state.kanbanOrders = filteredOrders;
+    state.kanbanLastUpdated = new Date().toISOString();
+    state.kanbanNeedsRefresh = false;
+    state.kanbanError = null;
+  } catch (error) {
+    state.kanbanError = error.message || 'No se pudieron cargar las órdenes.';
+    showToast(state.kanbanError, 'error');
+  } finally {
+    state.kanbanLoading = false;
+    renderOrderKanban();
+  }
+}
+
+function ensureKanbanDataLoaded() {
+  if (!state.token) {
+    renderOrderKanban();
+    return;
+  }
+  if (state.kanbanLoading) {
+    renderOrderKanban();
+    return;
+  }
+  if (state.kanbanNeedsRefresh || !state.kanbanOrders.length) {
+    loadKanbanOrders({ force: true });
+  } else {
+    renderOrderKanban();
+  }
+}
+
+function markKanbanDataStale() {
+  state.kanbanNeedsRefresh = true;
+  renderOrderKanban();
+  if (activeDashboardTab === 'orderKanbanPanel' && state.token && !state.kanbanLoading) {
+    loadKanbanOrders({ force: true });
+  }
+}
+
 async function loadCustomers({ page, pageSize } = {}) {
   if (!state.token) return null;
   const requestedPage = Number(page);
@@ -1876,6 +2105,12 @@ function handleLogout(auto = false) {
   state.orderPageSize = DEFAULT_PAGE_SIZE;
   state.customerTotal = 0;
   state.orderTotal = 0;
+  state.kanbanOrders = [];
+  state.kanbanLoading = false;
+  state.kanbanError = null;
+  state.kanbanSearchTerm = '';
+  state.kanbanNeedsRefresh = true;
+  state.kanbanLastUpdated = null;
   state.isCreateCustomerVisible = false;
   state.isCreateUserVisible = false;
   state.auditLogs = [];
@@ -1925,6 +2160,9 @@ function handleLogout(auto = false) {
   if (orderSearchInput) {
     orderSearchInput.value = '';
   }
+  if (orderKanbanSearchInput) {
+    orderKanbanSearchInput.value = '';
+  }
   if (customerPageSizeSelect) {
     customerPageSizeSelect.value = String(DEFAULT_PAGE_SIZE);
   }
@@ -1934,6 +2172,13 @@ function handleLogout(auto = false) {
   setCreateCustomerVisible(false);
   if (ordersTableBody) {
     ordersTableBody.innerHTML = '';
+  }
+  if (orderKanbanColumns) {
+    orderKanbanColumns.innerHTML = '';
+  }
+  if (orderKanbanStatus) {
+    orderKanbanStatus.textContent = '';
+    orderKanbanStatus.classList.add('hidden');
   }
   if (orderDetailVendorSelect) {
     populateVendorSelect(orderDetailVendorSelect);
@@ -1983,6 +2228,7 @@ function handleLogout(auto = false) {
   setActiveView('staff-view');
   renderUsers();
   renderOrderTasks();
+  renderOrderKanban();
   if (auto) {
     showToast('La sesión ha expirado, vuelve a iniciar sesión.', 'error');
   }
@@ -2591,6 +2837,7 @@ async function handleOrderUpdate(event) {
   const deliveryDateValueRaw = orderDetailDeliveryDateInput?.value || '';
   const deliveryDateValue = normalizeDateForApi(deliveryDateValueRaw);
   const invoiceValue = invoiceValueRaw || null;
+  let orderUpdatedSuccessfully = false;
   try {
     await apiFetch(`/orders/${state.selectedOrderId}`, {
       method: 'PATCH',
@@ -2609,6 +2856,7 @@ async function handleOrderUpdate(event) {
         origin_branch: originBranchValue,
       },
     });
+    orderUpdatedSuccessfully = true;
     if (affectedCustomerId) {
       delete state.customerOrdersCache[String(affectedCustomerId)];
       delete state.customerDisplayCache[String(affectedCustomerId)];
@@ -2628,6 +2876,9 @@ async function handleOrderUpdate(event) {
   } finally {
     if (submitButton) {
       submitButton.disabled = false;
+    }
+    if (orderUpdatedSuccessfully) {
+      markKanbanDataStale();
     }
   }
 }
@@ -2670,6 +2921,19 @@ if (orderSearchInput) {
     orderSearchDebounce = setTimeout(() => {
       loadOrders({ page: 1 });
     }, 250);
+  });
+}
+
+if (orderKanbanSearchInput) {
+  orderKanbanSearchInput.addEventListener('input', (event) => {
+    state.kanbanSearchTerm = event.target.value;
+    renderOrderKanban();
+  });
+}
+
+if (orderKanbanRefreshButton) {
+  orderKanbanRefreshButton.addEventListener('click', () => {
+    loadKanbanOrders({ force: true });
   });
 }
 
@@ -2930,6 +3194,7 @@ async function createOrder(event) {
   if (submitButton) {
     submitButton.disabled = true;
   }
+  let orderCreatedSuccessfully = false;
   try {
     await apiFetch('/orders', {
       method: 'POST',
@@ -2950,6 +3215,7 @@ async function createOrder(event) {
         tasks: orderTasks,
       },
     });
+    orderCreatedSuccessfully = true;
     delete state.customerOrdersCache[String(selectedCustomerId)];
     delete state.customerDisplayCache[String(selectedCustomerId)];
     await loadOrders();
@@ -2959,6 +3225,9 @@ async function createOrder(event) {
   } catch (error) {
     showToast(error.message, 'error');
   } finally {
+    if (orderCreatedSuccessfully) {
+      markKanbanDataStale();
+    }
     syncCreateOrderFormDisabled();
   }
 }
@@ -3203,6 +3472,296 @@ function updatePaginationControls({
   return normalizedPage;
 }
 
+
+function matchesKanbanSearch(order, normalizedSearch) {
+  if (!normalizedSearch) {
+    return true;
+  }
+  const searchableValues = [
+    order?.order_number,
+    order?.customer_name,
+    order?.customer_document,
+    order?.customer_contact,
+    order?.invoice_number,
+    order?.assigned_tailor?.full_name,
+    order?.assigned_vendor?.full_name,
+  ];
+  return searchableValues.some((value) => {
+    if (!value) return false;
+    return normalizeText(value).includes(normalizedSearch);
+  });
+}
+
+function createKanbanMetaItem(label, value) {
+  const item = document.createElement('div');
+  item.className = 'kanban-card-meta-item';
+  const labelElement = document.createElement('span');
+  labelElement.className = 'kanban-card-meta-label';
+  labelElement.textContent = `${label}:`;
+  const valueElement = document.createElement('span');
+  valueElement.className = 'kanban-card-meta-value';
+  valueElement.textContent = value || '—';
+  item.appendChild(labelElement);
+  item.appendChild(valueElement);
+  return item;
+}
+
+function getOrderDetailUrl(order) {
+  if (!order || order.id === undefined || order.id === null) {
+    return null;
+  }
+  if (typeof window === 'undefined' || typeof window.location === 'undefined') {
+    return `order.html?id=${encodeURIComponent(order.id)}`;
+  }
+  try {
+    const detailUrl = new URL('order.html', window.location.href);
+    detailUrl.searchParams.set('id', order.id);
+    if (order?.order_number) {
+      detailUrl.searchParams.set('number', order.order_number);
+    }
+    return detailUrl.toString();
+  } catch (error) {
+    let fallback = `order.html?id=${encodeURIComponent(order.id)}`;
+    if (order?.order_number) {
+      fallback += `&number=${encodeURIComponent(order.order_number)}`;
+    }
+    return fallback;
+  }
+}
+
+function createKanbanCard(order) {
+  const detailUrl = getOrderDetailUrl(order);
+  const card = detailUrl ? document.createElement('a') : document.createElement('article');
+  card.className = 'kanban-card';
+  if (order?.id !== undefined && order?.id !== null) {
+    card.dataset.orderId = String(order.id);
+  }
+  if (detailUrl) {
+    card.href = detailUrl;
+    card.target = '_blank';
+    card.rel = 'noopener noreferrer';
+    card.classList.add('is-clickable');
+    const labelParts = [];
+    if (order?.order_number) {
+      labelParts.push(`Orden ${order.order_number}`);
+    }
+    if (order?.customer_name) {
+      labelParts.push(order.customer_name);
+    }
+    card.setAttribute('aria-label', `Abrir detalle de ${labelParts.join(' · ') || 'la orden'}`);
+    card.title = 'Abrir información de la orden en una nueva pestaña';
+  }
+
+  const header = document.createElement('div');
+  header.className = 'kanban-card-header';
+  const orderNumber = document.createElement('span');
+  orderNumber.className = 'kanban-card-order';
+  orderNumber.textContent = order?.order_number || 'Sin número';
+  header.appendChild(orderNumber);
+  if (order?.status) {
+    header.appendChild(createStatusBadge(order.status));
+  }
+  card.appendChild(header);
+
+  const body = document.createElement('div');
+  body.className = 'kanban-card-body';
+  body.appendChild(createKanbanMetaItem('Cliente', order?.customer_name || '—'));
+  if (order?.customer_document) {
+    body.appendChild(createKanbanMetaItem('Documento', order.customer_document));
+  }
+  if (order?.assigned_tailor?.full_name) {
+    body.appendChild(createKanbanMetaItem('Sastre', order.assigned_tailor.full_name));
+  }
+  if (order?.assigned_vendor?.full_name) {
+    body.appendChild(createKanbanMetaItem('Vendedor', order.assigned_vendor.full_name));
+  }
+  card.appendChild(body);
+
+  const footer = document.createElement('div');
+  footer.className = 'kanban-card-footer';
+  const delivery = document.createElement('span');
+  delivery.className = 'kanban-card-delivery';
+  if (order?.delivery_date) {
+    delivery.textContent = formatDeliveryDateDisplay(order);
+    if (isDeliveryDateOverdue(order.delivery_date, order.status)) {
+      delivery.classList.add('overdue');
+    } else if (isDeliveryDateClose(order.delivery_date, order.status)) {
+      delivery.classList.add('due-soon');
+    }
+  } else {
+    delivery.textContent = 'Sin fecha de entrega';
+  }
+  footer.appendChild(delivery);
+
+  if (order?.updated_at) {
+    const updated = document.createElement('span');
+    updated.className = 'kanban-card-updated';
+    const time = document.createElement('time');
+    time.dateTime = order.updated_at;
+    time.textContent = formatDate(order.updated_at);
+    updated.textContent = 'Actualizado:';
+    updated.appendChild(document.createTextNode(' '));
+    updated.appendChild(time);
+    footer.appendChild(updated);
+  }
+
+  card.appendChild(footer);
+  return card;
+}
+
+function renderOrderKanban() {
+  if (!orderKanbanColumns) {
+    return;
+  }
+
+  if (orderKanbanSearchInput && orderKanbanSearchInput.value !== state.kanbanSearchTerm) {
+    orderKanbanSearchInput.value = state.kanbanSearchTerm;
+  }
+
+  orderKanbanColumns.innerHTML = '';
+  if (orderKanbanStatus) {
+    orderKanbanStatus.textContent = '';
+    orderKanbanStatus.classList.add('hidden');
+  }
+
+  if (!state.token) {
+    if (orderKanbanStatus) {
+      orderKanbanStatus.textContent = 'Inicia sesión para ver el tablero de órdenes.';
+      orderKanbanStatus.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (state.kanbanLoading) {
+    if (orderKanbanStatus) {
+      orderKanbanStatus.textContent = 'Cargando tablero Kanban...';
+      orderKanbanStatus.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (state.kanbanError) {
+    if (orderKanbanStatus) {
+      orderKanbanStatus.textContent = state.kanbanError;
+      orderKanbanStatus.classList.remove('hidden');
+    }
+    return;
+  }
+
+  const orders = Array.isArray(state.kanbanOrders) ? state.kanbanOrders : [];
+  if (!orders.length) {
+    if (orderKanbanStatus) {
+      orderKanbanStatus.textContent = state.kanbanNeedsRefresh
+        ? 'Carga el tablero para ver las órdenes registradas.'
+        : 'No hay órdenes registradas.';
+      orderKanbanStatus.classList.remove('hidden');
+    }
+    return;
+  }
+
+  const normalizedSearch = normalizeText(state.kanbanSearchTerm);
+  const filteredOrders = normalizedSearch
+    ? orders.filter((order) => matchesKanbanSearch(order, normalizedSearch))
+    : orders;
+
+  if (!filteredOrders.length) {
+    if (orderKanbanStatus) {
+      orderKanbanStatus.textContent = 'No se encontraron órdenes que coincidan con la búsqueda actual.';
+      orderKanbanStatus.classList.remove('hidden');
+    }
+    return;
+  }
+
+  const orderedStatuses = [];
+  const seenStatuses = new Set();
+
+  const appendStatus = (status) => {
+    const label = status && status.toString().trim() ? status : KANBAN_FALLBACK_STATUS;
+    if (!seenStatuses.has(label)) {
+      seenStatuses.add(label);
+      orderedStatuses.push(label);
+    }
+  };
+
+  if (Array.isArray(state.statuses) && state.statuses.length) {
+    state.statuses.forEach(appendStatus);
+  }
+  filteredOrders.forEach((order) => appendStatus(order?.status));
+
+  if (!seenStatuses.size) {
+    orderedStatuses.push(KANBAN_FALLBACK_STATUS);
+  }
+
+  const groupedByStatus = new Map();
+  orderedStatuses.forEach((status) => {
+    groupedByStatus.set(status, []);
+  });
+
+  filteredOrders.forEach((order) => {
+    const label = order?.status && order.status.toString().trim()
+      ? order.status
+      : KANBAN_FALLBACK_STATUS;
+    if (!groupedByStatus.has(label)) {
+      groupedByStatus.set(label, []);
+      orderedStatuses.push(label);
+    }
+    groupedByStatus.get(label).push(order);
+  });
+
+  orderedStatuses.forEach((status) => {
+    const column = document.createElement('section');
+    column.className = 'kanban-column';
+    column.dataset.status = status || KANBAN_FALLBACK_STATUS;
+
+    const header = document.createElement('div');
+    header.className = 'kanban-column-header';
+    const title = document.createElement('h4');
+    title.className = 'kanban-column-title';
+    title.textContent = status || KANBAN_FALLBACK_STATUS;
+    header.appendChild(title);
+
+    const count = document.createElement('span');
+    count.className = 'kanban-column-count';
+    const ordersForStatus = groupedByStatus.get(status) || [];
+    count.textContent = String(ordersForStatus.length);
+    header.appendChild(count);
+
+    column.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'kanban-column-body';
+
+    if (!ordersForStatus.length) {
+      body.classList.add('is-empty');
+      const emptyMessage = document.createElement('p');
+      emptyMessage.textContent = 'Sin órdenes en este estado.';
+      body.appendChild(emptyMessage);
+    } else {
+      ordersForStatus.sort(compareOrdersForDisplay).forEach((order) => {
+        body.appendChild(createKanbanCard(order));
+      });
+    }
+
+    column.appendChild(body);
+    orderKanbanColumns.appendChild(column);
+  });
+
+  if (orderKanbanStatus) {
+    const messages = [];
+    if (state.kanbanNeedsRefresh) {
+      messages.push('El tablero contiene información en caché. Actualízalo para ver los últimos cambios.');
+    }
+    if (state.kanbanLastUpdated) {
+      messages.push(`Última actualización: ${formatDate(state.kanbanLastUpdated)}.`);
+    }
+    if (messages.length) {
+      orderKanbanStatus.textContent = messages.join(' ');
+      orderKanbanStatus.classList.remove('hidden');
+    } else {
+      orderKanbanStatus.classList.add('hidden');
+    }
+  }
+}
 
 function renderOrders() {
   if (!ordersTableBody) return;

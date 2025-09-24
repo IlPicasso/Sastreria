@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Detalle de la orden | Portal de Sastrería</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="top-bar">
+      <div class="container order-detail-top">
+        <h1>Portal de Sastrería</h1>
+        <a class="link-button top-bar-link" href="index.html">Volver al panel</a>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="card order-detail-card">
+        <div class="order-detail-page-header">
+          <div class="order-detail-heading">
+            <h2>
+              Orden <span id="orderHeadingNumber" class="order-detail-number">—</span>
+            </h2>
+            <p class="muted small">
+              Registrada: <span id="orderHeadingCreated">—</span>
+              · Última actualización: <span id="orderHeadingUpdated">—</span>
+            </p>
+          </div>
+          <div id="orderHeadingStatus" class="order-detail-status"></div>
+        </div>
+
+        <div
+          id="orderDetailStatusMessage"
+          class="order-detail-status-message hidden"
+          role="status"
+          aria-live="polite"
+        ></div>
+
+        <div id="orderDetailContent" class="order-detail-content hidden">
+          <section class="order-detail-section">
+            <h3>Resumen de la orden</h3>
+            <dl class="order-detail-summary-grid">
+              <div class="order-detail-summary-item">
+                <dt>Cliente</dt>
+                <dd id="orderSummaryCustomer">—</dd>
+              </div>
+              <div class="order-detail-summary-item">
+                <dt>Documento</dt>
+                <dd id="orderSummaryDocument">—</dd>
+              </div>
+              <div class="order-detail-summary-item">
+                <dt>Contacto</dt>
+                <dd id="orderSummaryContact">—</dd>
+              </div>
+              <div class="order-detail-summary-item">
+                <dt>Factura</dt>
+                <dd id="orderSummaryInvoice">—</dd>
+              </div>
+              <div class="order-detail-summary-item">
+                <dt>Establecimiento</dt>
+                <dd id="orderSummaryOrigin">—</dd>
+              </div>
+              <div class="order-detail-summary-item">
+                <dt>Fecha de entrega</dt>
+                <dd id="orderSummaryDelivery">—</dd>
+              </div>
+              <div class="order-detail-summary-item">
+                <dt>Sastre asignado</dt>
+                <dd id="orderSummaryTailor">—</dd>
+              </div>
+              <div class="order-detail-summary-item">
+                <dt>Vendedor asignado</dt>
+                <dd id="orderSummaryVendor">—</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section class="order-detail-section">
+            <div class="order-detail-section-header">
+              <h3>Actualizar orden</h3>
+              <p id="orderEditPermissionsNotice" class="muted small hidden">
+                Tu rol no permite modificar la orden desde esta vista.
+              </p>
+            </div>
+            <form id="orderEditForm" class="order-edit-form hidden" novalidate>
+              <div class="order-edit-grid">
+                <div class="order-edit-field">
+                  <label for="orderEditContact">Contacto</label>
+                  <input type="text" id="orderEditContact" autocomplete="tel" />
+                </div>
+                <div class="order-edit-field">
+                  <label for="orderEditInvoice">Número de factura</label>
+                  <input type="text" id="orderEditInvoice" autocomplete="off" />
+                </div>
+                <div class="order-edit-field">
+                  <label for="orderEditStatus">Estado</label>
+                  <select id="orderEditStatus"></select>
+                </div>
+                <div class="order-edit-field">
+                  <label for="orderEditTailor">Sastre asignado</label>
+                  <select id="orderEditTailor"></select>
+                </div>
+                <div class="order-edit-field">
+                  <label for="orderEditVendor">Vendedor asignado</label>
+                  <select id="orderEditVendor"></select>
+                </div>
+                <div class="order-edit-field">
+                  <label for="orderEditOrigin">Establecimiento remitente</label>
+                  <select id="orderEditOrigin" required></select>
+                </div>
+                <div class="order-edit-field">
+                  <label for="orderEditDelivery">Fecha y hora de entrega</label>
+                  <input type="datetime-local" id="orderEditDelivery" />
+                </div>
+                <div class="order-edit-field order-edit-notes">
+                  <label for="orderEditNotes">Notas</label>
+                  <textarea id="orderEditNotes" rows="3"></textarea>
+                </div>
+              </div>
+              <div
+                id="orderEditFeedback"
+                class="order-edit-feedback hidden"
+                role="status"
+                aria-live="polite"
+              ></div>
+              <div class="order-edit-actions">
+                <button type="submit" class="primary">Guardar cambios</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="order-detail-section">
+            <h3>Notas</h3>
+            <p id="orderDetailNotes" class="order-detail-notes muted">
+              Sin notas registradas.
+            </p>
+          </section>
+
+          <section class="order-detail-section">
+            <h3>Medidas registradas</h3>
+            <div id="orderDetailMeasurements" class="measurement-tags muted">
+              Sin medidas registradas.
+            </div>
+          </section>
+
+          <section class="order-detail-section">
+            <h3>Checklist de producción</h3>
+            <div id="orderDetailTasks" class="order-detail-task-container muted">
+              Cargando checklist de producción...
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <footer class="container footer">
+      <small>
+        © <span id="currentYear"></span> Portal de Sastrería. Todos los derechos reservados.
+      </small>
+    </footer>
+
+    <script src="order-detail.js"></script>
+  </body>
+</html>
