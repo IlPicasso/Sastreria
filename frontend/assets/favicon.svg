@@ -1,0 +1,16 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>Adams Favicon</title>
+  <rect width="64" height="64" rx="12" fill="#0d0f10" />
+  <text
+    x="32"
+    y="40"
+    text-anchor="middle"
+    font-family="'Montserrat', 'Lato', 'Helvetica Neue', Arial, sans-serif"
+    font-size="28"
+    font-weight="600"
+    letter-spacing="0.2em"
+    fill="#ffffff"
+  >
+    A
+  </text>
+</svg>
