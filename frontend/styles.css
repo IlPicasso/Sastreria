@@ -1402,9 +1402,43 @@ button[disabled] {
   color: var(--muted);
 }
 
-.kanban-card-delivery {
-  font-weight: 600;
-}
+@media (max-width: 600px) {
+  .header-main {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .header-nav {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+  }
+
+  .nav-link {
+    width: 100%;
+    text-align: left;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .header-cta {
+    width: 100%;
+  }
+
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .dashboard-subnav {
+    width: 100%;
+  }
 
 .kanban-card-updated {
   margin-left: auto;
