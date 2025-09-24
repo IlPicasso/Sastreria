@@ -19,22 +19,7 @@
   </head>
   <body>
     <header class="site-header">
-      <div class="meta-bar">
-        <div class="container meta-bar-content">
-          <span class="meta-message">Escríbenos y te asesoramos gratis</span>
-          <nav class="meta-links" aria-label="Enlaces corporativos">
-            <a href="#">Sobre nosotros</a>
-            <a href="#">Blog Adams</a>
-            <a href="#">Contáctanos</a>
-            <a href="#">FAQ</a>
-            <a href="#">Newsletter</a>
-          </nav>
-          <div class="meta-social" aria-label="Redes sociales">
-            <a class="meta-icon" href="#" aria-label="Facebook Adams">Fb</a>
-            <a class="meta-icon" href="#" aria-label="Instagram Adams">Ig</a>
-          </div>
-        </div>
-      </div>
+
       <div class="container header-main">
         <a class="brand" href="index.html" aria-label="Inicio Adams">
           <img src="assets/adams-logo.svg" alt="Adams Fashion Store" class="brand-logo" />
@@ -75,49 +60,36 @@
         </div>
       </div>
       <div class="container hero">
-        <div class="hero-content">
+        <div class="hero-card">
           <p class="hero-kicker">Extensión digital Adams</p>
           <h1>Tu sastrería de confianza, ahora en línea</h1>
           <p>
             Consulta el estado de tus confecciones y colabora con nuestro equipo experto
             en sastrería desde cualquier dispositivo.
           </p>
+          <div class="hero-actions">
+            <button
+              type="button"
+              class="primary hero-cta"
+              onclick="document.getElementById('orderNumber').focus();"
+            >
+              Consultar orden
+
+            </button>
+            <a
+              class="hero-link"
+              href="#staff-view"
+              onclick="setActiveView('staff-view'); return false;"
+            >
+              Ingreso para personal
+            </a>
+          </div>
+
           <div class="hero-badges" role="list">
             <span class="hero-badge" role="listitem">Boutiques Adams</span>
             <span class="hero-badge" role="listitem">Atención personalizada</span>
             <span class="hero-badge" role="listitem">Hecho a tu medida</span>
           </div>
-        </div>
-        <div class="hero-panels" aria-hidden="true">
-          <article class="hero-panel hero-panel-women">
-            <span class="panel-title">Mujeres</span>
-            <span class="panel-subtitle">Colección Atelier</span>
-          </article>
-          <article class="hero-panel hero-panel-men">
-            <span class="panel-title">Hombres</span>
-            <span class="panel-subtitle">Tailoring 2025</span>
-          </article>
-        </div>
-      </div>
-      <div class="container hero">
-        <div class="hero-content">
-          <h1>Portal de clientes Adams</h1>
-          <p>
-            Consulta el estado de tus confecciones y colabora con nuestro equipo experto
-            en sastrería para mantener cada detalle impecable.
-          </p>
-          <div class="hero-badges" role="list">
-            <span class="hero-badge" role="listitem">Boutiques Adams</span>
-            <span class="hero-badge" role="listitem">Atención personalizada</span>
-            <span class="hero-badge" role="listitem">Hecho a tu medida</span>
-          </div>
-        </div>
-        <div class="hero-card" aria-hidden="true">
-          <p class="hero-card-title">Extensión digital Adams</p>
-          <p class="hero-card-body">
-            Diseñamos este portal para que vivas la misma experiencia premium de nuestras
-            tiendas físicas desde cualquier lugar.
-          </p>
         </div>
       </div>
     </header>
