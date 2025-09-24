@@ -3525,6 +3525,7 @@ function createKanbanCard(order) {
     card.title = 'Abrir información de la orden en una nueva pestaña';
   }
 
+
   const header = document.createElement('div');
   header.className = 'kanban-card-header';
   const orderNumber = document.createElement('span');
