@@ -1,0 +1,10 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="faviconGradient" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(18 12) rotate(50) scale(56)">
+      <stop offset="0" stop-color="#F9B233" />
+      <stop offset="1" stop-color="#F26430" />
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="#051C3B" />
+  <path d="M32 14L45.5 46H38.9L36 39.6H27.8L24.9 46H18.5L32 14ZM31.9 25.3L29.2 32.6H34.6L31.9 25.3Z" fill="url(#faviconGradient)" />
+</svg>
