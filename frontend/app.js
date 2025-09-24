@@ -98,9 +98,12 @@ function clearStoredToken() {
 }
 
 const views = document.querySelectorAll('.view');
-const navButtons = document.querySelectorAll('.nav-button');
+const navButtons = document.querySelectorAll('.nav-link');
 const panelNavButton = document.getElementById('panelNavButton');
 const loginNavButton = document.getElementById('loginNavButton');
+const headerSessionInfo = document.getElementById('headerSessionInfo');
+const headerUserNameElement = document.getElementById('headerUserName');
+const headerLogoutButton = document.getElementById('headerLogoutButton');
 const dashboardTabButtons = document.querySelectorAll('.dashboard-tab');
 const dashboardPanels = document.querySelectorAll('.dashboard-panel');
 const orderCreateTabButton = document.getElementById('orderCreateTabButton');
@@ -250,6 +253,10 @@ function setActiveView(viewId) {
     const shouldHighlightLogin = viewId === 'staff-view' && !state.token;
     loginNavButton.classList.toggle('active', shouldHighlightLogin);
   }
+  updateNavigationForAuth();
+  if (viewId === 'staff-view') {
+    syncStaffViewVisibility();
+  }
 }
 
 navButtons.forEach((btn) => {
@@ -314,16 +321,19 @@ function setActiveDashboardTab(tabId = 'orderListPanel') {
       }
       btn.disabled = shouldHideUsersTab;
     }
-    btn.classList.toggle('active', tab === targetTab);
+    const isActiveTab = tab === targetTab;
+    btn.classList.toggle('active', isActiveTab);
+    btn.setAttribute('aria-expanded', isActiveTab ? 'true' : 'false');
+    btn.setAttribute('aria-selected', isActiveTab ? 'true' : 'false');
   });
   dashboardPanels.forEach((panel) => {
-    if (panel.id === 'orderCreatePanel' && userRole === 'sastre') {
-      panel.classList.add('hidden');
-    } else if (panel.id === 'usersPanel' && userRole !== 'administrador') {
-      panel.classList.add('hidden');
-    } else {
-      panel.classList.toggle('hidden', panel.id !== targetTab);
-    }
+    const isTargetPanel = panel.id === targetTab;
+    const shouldHidePanel =
+      (panel.id === 'orderCreatePanel' && userRole === 'sastre') ||
+      (panel.id === 'usersPanel' && userRole !== 'administrador') ||
+      !isTargetPanel;
+    panel.classList.toggle('hidden', shouldHidePanel);
+    panel.setAttribute('aria-hidden', shouldHidePanel ? 'true' : 'false');
   });
   if (targetTab === 'usersPanel' && userRole === 'administrador') {
     loadUsers();
@@ -334,6 +344,21 @@ function setActiveDashboardTab(tabId = 'orderListPanel') {
     renderOrderKanban();
   }
   syncCreateOrderFormDisabled();
+}
+
+function syncStaffViewVisibility() {
+  const isAuthenticated = Boolean(state.token);
+  if (staffDashboard) {
+    staffDashboard.classList.toggle('hidden', !isAuthenticated);
+  }
+  if (staffLoginCard) {
+    staffLoginCard.classList.toggle('hidden', isAuthenticated);
+  }
+  if (isAuthenticated) {
+    setActiveDashboardTab(activeDashboardTab || 'orderListPanel');
+  } else {
+    activeDashboardTab = 'orderListPanel';
+  }
 }
 
 dashboardTabButtons.forEach((btn) => {
@@ -1531,14 +1556,19 @@ function renderCustomerMeasurementOptions(customer) {
 }
 function updateUserInfo() {
   if (!state.user) {
+    updateHeaderSession();
     updateUserCreationForm();
     return;
   }
+  const displayName = getUserDisplayName(state.user);
   if (currentUserNameElement) {
-    currentUserNameElement.textContent = state.user.full_name;
+    currentUserNameElement.textContent = displayName || state.user.full_name || '';
   }
   if (currentUserRoleElement) {
     currentUserRoleElement.textContent = ROLE_LABELS[state.user.role] || state.user.role;
+  }
+  if (headerUserNameElement) {
+    headerUserNameElement.textContent = displayName;
   }
   if (deleteCustomerButton) {
     if (state.user.role === 'administrador') {
@@ -1573,26 +1603,44 @@ function updateUserInfo() {
   } else {
     setActiveDashboardTab(activeDashboardTab);
   }
+  updateHeaderSession();
   updateUserCreationForm();
   renderOrderTasks();
 }
 
 function showDashboard() {
-  if (staffDashboard) {
-    staffDashboard.classList.remove('hidden');
-  }
-  if (staffLoginCard) {
-    staffLoginCard.classList.add('hidden');
-  }
-  setActiveDashboardTab('orderListPanel');
+  activeDashboardTab = 'orderListPanel';
+  syncStaffViewVisibility();
 }
 
 function hideDashboard() {
-  if (staffDashboard) {
-    staffDashboard.classList.add('hidden');
+  activeDashboardTab = 'orderListPanel';
+  syncStaffViewVisibility();
+}
+
+function getUserDisplayName(user) {
+  if (!user || typeof user !== 'object') {
+    return '';
   }
-  if (staffLoginCard) {
-    staffLoginCard.classList.remove('hidden');
+  if (typeof user.full_name === 'string' && user.full_name.trim()) {
+    return user.full_name.trim();
+  }
+  if (typeof user.username === 'string' && user.username.trim()) {
+    return user.username.trim();
+  }
+  return '';
+}
+
+function updateHeaderSession() {
+  const isAuthenticated = Boolean(state.token && state.user);
+  if (headerSessionInfo) {
+    headerSessionInfo.classList.toggle('hidden', !isAuthenticated);
+  }
+  if (headerUserNameElement) {
+    headerUserNameElement.textContent = isAuthenticated ? getUserDisplayName(state.user) : '';
+  }
+  if (headerLogoutButton) {
+    headerLogoutButton.disabled = !isAuthenticated;
   }
 }
 
@@ -1607,6 +1655,8 @@ function updateNavigationForAuth() {
       loginNavButton.classList.remove('active');
     }
   }
+  updateHeaderSession();
+  syncStaffViewVisibility();
 }
 
 async function bootstrapAuthenticatedSession({ showWelcomeToast = false } = {}) {
@@ -2106,6 +2156,12 @@ function handleLogout(auto = false) {
   if (currentUserRoleElement) {
     currentUserRoleElement.textContent = '';
   }
+  if (headerUserNameElement) {
+    headerUserNameElement.textContent = '';
+  }
+  if (headerSessionInfo) {
+    headerSessionInfo.classList.add('hidden');
+  }
   if (assignTailorSelect) {
     populateTailorSelect(assignTailorSelect);
   }
@@ -2213,6 +2269,13 @@ if (staffLoginForm) {
 
 if (logoutButton) {
   logoutButton.addEventListener('click', () => {
+    handleLogout(false);
+    showToast('Sesión cerrada correctamente.', 'success');
+  });
+}
+
+if (headerLogoutButton) {
+  headerLogoutButton.addEventListener('click', () => {
     handleLogout(false);
     showToast('Sesión cerrada correctamente.', 'success');
   });
