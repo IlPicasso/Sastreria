@@ -101,7 +101,7 @@ function clearStoredToken() {
 }
 
 const views = document.querySelectorAll('.view');
-const navButtons = document.querySelectorAll('.nav-button');
+const navButtons = document.querySelectorAll('.nav-link');
 const panelNavButton = document.getElementById('panelNavButton');
 const loginNavButton = document.getElementById('loginNavButton');
 const dashboardTabButtons = document.querySelectorAll('.dashboard-tab');
