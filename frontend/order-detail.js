@@ -4,6 +4,7 @@ const ORDER_TASK_STATUS_PENDING = 'pendiente';
 const ORDER_TASK_STATUS_COMPLETED = 'completado';
 const ESTABLISHMENTS = ['Urdesa', 'Batan', 'Indie'];
 
+
 const headingNumberElement = document.getElementById('orderHeadingNumber');
 const headingCreatedElement = document.getElementById('orderHeadingCreated');
 const headingUpdatedElement = document.getElementById('orderHeadingUpdated');
@@ -45,6 +46,7 @@ const detailState = {
   editingAllowed: false,
   catalogWarnings: [],
 };
+n
 
 function setCurrentYear() {
   if (currentYearElement) {
@@ -231,6 +233,7 @@ function normalizeDateForApi(value) {
   }
   return '';
 }
+
 
 function hasExplicitTimeComponent(value) {
   if (!value) {
@@ -660,6 +663,7 @@ function populateOrderEditForm(order) {
   showCatalogWarningsIfNeeded();
 }
 
+
 function getTimeValue(value) {
   if (!value) return 0;
   const date = new Date(value);
@@ -843,6 +847,7 @@ function extractErrorMessage(data) {
 }
 
 async function fetchWithAuth(path, token, { method = 'GET', body } = {}) {
+
   const headers = { Accept: 'application/json' };
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -855,6 +860,7 @@ async function fetchWithAuth(path, token, { method = 'GET', body } = {}) {
   let response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, fetchOptions);
+
   } catch (networkError) {
     throw new Error('No se pudo conectar con el servidor. Intenta nuevamente.');
   }
@@ -949,6 +955,7 @@ async function loadOrderDetails(orderId, token) {
   if (detailState.editingAllowed) {
     setEditFormDisabled(true);
   }
+
   setStatusMessage('Cargando información de la orden...', 'loading');
   try {
     const order = await fetchOrder(orderId, token);
@@ -963,6 +970,7 @@ async function loadOrderDetails(orderId, token) {
     if (detailState.editingAllowed) {
       populateOrderEditForm(order);
     }
+
     showContent();
     clearStatusMessage();
     try {
@@ -979,6 +987,7 @@ async function loadOrderDetails(orderId, token) {
         orderEditFormElement.classList.add('hidden');
       }
     }
+
     hideContent();
     setStatusMessage(error.message || 'No se pudo cargar la información de la orden.', 'error');
   }
@@ -1068,6 +1077,7 @@ if (orderEditFormElement) {
   orderEditFormElement.addEventListener('submit', handleOrderEditSubmit);
 }
 
+
 function initialise() {
   setCurrentYear();
   applyInitialOrderNumberFromQuery();
@@ -1085,6 +1095,8 @@ function initialise() {
     return;
   }
   preparePage(orderId, token);
+
+
 }
 
 initialise();

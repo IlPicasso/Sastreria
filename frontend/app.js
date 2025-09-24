@@ -10,6 +10,7 @@ const KANBAN_DELIVERED_RETENTION_DAYS = 4;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 
+
 const state = {
   statuses: [],
   token: null,
@@ -1880,6 +1881,7 @@ async function loadKanbanOrders({ force = false } = {}) {
 
     const filteredOrders = collected.filter(shouldIncludeOrderInKanban);
     state.kanbanOrders = filteredOrders;
+
     state.kanbanLastUpdated = new Date().toISOString();
     state.kanbanNeedsRefresh = false;
     state.kanbanError = null;
@@ -3551,6 +3553,7 @@ function createKanbanCard(order) {
     card.setAttribute('aria-label', `Abrir detalle de ${labelParts.join(' · ') || 'la orden'}`);
     card.title = 'Abrir información de la orden en una nueva pestaña';
   }
+
 
   const header = document.createElement('div');
   header.className = 'kanban-card-header';

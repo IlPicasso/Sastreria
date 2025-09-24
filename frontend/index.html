@@ -3,14 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Portal de Sastrería</title>
+    <title>Portal Adams | Seguimiento de órdenes</title>
+    <meta
+      name="description"
+      content="Extensión digital de Adams para consultar órdenes a medida y que el personal gestione confecciones con estilo."
+    />
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=Source+Sans+3:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="top-bar">
-      <div class="container">
-        <h1>Portal de Sastrería</h1>
-        <nav class="main-nav">
+      <div class="container top-bar-content">
+        <a class="brand" href="index.html" aria-label="Inicio Adams">
+          <img src="assets/adams-logo.svg" alt="Adams Sastrería" class="brand-logo" />
+          <div class="brand-text">
+            <span class="brand-name">Adams</span>
+            <span class="brand-subtitle">Sastrería &amp; Moda</span>
+          </div>
+        </a>
+        <nav class="main-nav" aria-label="Navegación principal">
           <div class="main-nav-buttons">
             <button class="nav-button active" data-view="client-view">Clientes</button>
             <button
@@ -26,13 +43,34 @@
           </button>
         </nav>
       </div>
+      <div class="container hero">
+        <div class="hero-content">
+          <h1>Portal de clientes Adams</h1>
+          <p>
+            Consulta el estado de tus confecciones y colabora con nuestro equipo experto
+            en sastrería para mantener cada detalle impecable.
+          </p>
+          <div class="hero-badges" role="list">
+            <span class="hero-badge" role="listitem">Boutiques Adams</span>
+            <span class="hero-badge" role="listitem">Atención personalizada</span>
+            <span class="hero-badge" role="listitem">Hecho a tu medida</span>
+          </div>
+        </div>
+        <div class="hero-card" aria-hidden="true">
+          <p class="hero-card-title">Extensión digital Adams</p>
+          <p class="hero-card-body">
+            Diseñamos este portal para que vivas la misma experiencia premium de nuestras
+            tiendas físicas desde cualquier lugar.
+          </p>
+        </div>
+      </div>
     </header>
 
     <main class="container">
       <section id="client-view" class="view active">
         <div class="card">
-          <h2>Consulta el estado de tu orden</h2>
-          <p>Ingresa el número de orden o la cédula con la que registraste tu pedido.</p>
+          <h2>Consulta el estado de tu orden Adams</h2>
+          <p>Ingresa el número de orden o la cédula con la que registraste tu confección.</p>
           <form id="orderLookupForm" class="form-grid">
             <div class="form-row">
               <label for="orderNumber">Número de orden</label>
@@ -690,7 +728,7 @@
     ></div>
 
     <footer class="container footer">
-      <small>© <span id="currentYear"></span> Portal de Sastrería. Todos los derechos reservados.</small>
+      <small>© <span id="currentYear"></span> Adams Sastrería. Inspirado en www.adams.com.ec · Todos los derechos reservados.</small>
     </footer>
 
     <script src="app.js"></script>
