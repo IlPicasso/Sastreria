@@ -3,14 +3,40 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Detalle de la orden | Portal de Sastrería</title>
+    <title>Detalle de la orden | Portal Adams</title>
+    <meta
+      name="description"
+      content="Visualiza el avance de tus confecciones personalizadas con el estilo Adams."
+    />
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=Source+Sans+3:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header class="top-bar">
-      <div class="container order-detail-top">
-        <h1>Portal de Sastrería</h1>
-        <a class="link-button" href="index.html">Volver al panel</a>
+    <header class="top-bar order-header">
+      <div class="container top-bar-content order-top-bar">
+        <a class="brand" href="index.html" aria-label="Volver al portal Adams">
+          <img src="assets/adams-logo.svg" alt="Adams Sastrería" class="brand-logo" />
+          <div class="brand-text">
+            <span class="brand-name">Adams</span>
+            <span class="brand-subtitle">Sastrería &amp; Moda</span>
+          </div>
+        </a>
+        <a class="link-button return-link" href="index.html">Volver al portal</a>
+      </div>
+      <div class="container hero order-hero">
+        <div class="hero-content">
+          <h1>Detalle de la orden</h1>
+          <p>
+            Controla el avance de tus prendas a medida y mantente al tanto de cada entrega
+            coordinada con nuestro taller.
+          </p>
+        </div>
       </div>
     </header>
 
@@ -100,9 +126,7 @@
     </main>
 
     <footer class="container footer">
-      <small>
-        © <span id="currentYear"></span> Portal de Sastrería. Todos los derechos reservados.
-      </small>
+      <small>© <span id="currentYear"></span> Adams Sastrería. Inspirado en www.adams.com.ec · Todos los derechos reservados.</small>
     </footer>
 
     <script src="order-detail.js"></script>
