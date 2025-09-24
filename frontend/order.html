@@ -3,14 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Detalle de la orden | Portal de Sastrería</title>
+    <title>Detalle de la orden | Portal Adams</title>
+    <meta
+      name="description"
+      content="Visualiza el avance de tus confecciones personalizadas con el estilo Adams."
+    />
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;500;600;700&family=Montserrat:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header class="top-bar">
-      <div class="container order-detail-top">
-        <h1>Portal de Sastrería</h1>
-        <a class="link-button" href="index.html">Volver al panel</a>
+    <header class="site-header order-header">
+      <div class="top-strip">
+        <div class="container top-strip-content" aria-hidden="true"></div>
+      </div>
+      <div class="container header-main">
+        <a class="brand" href="index.html" aria-label="Volver al portal Adams">
+          <img src="assets/adams-logo.svg" alt="Adams Fashion Store" class="brand-logo" />
+        </a>
+        <div class="header-actions">
+          <a class="header-link" href="index.html">&larr; Volver al portal</a>
+        </div>
       </div>
     </header>
 
@@ -100,9 +118,7 @@
     </main>
 
     <footer class="container footer">
-      <small>
-        © <span id="currentYear"></span> Portal de Sastrería. Todos los derechos reservados.
-      </small>
+      <small>© <span id="currentYear"></span> Adams Sastrería. Inspirado en www.adams.com.ec · Todos los derechos reservados.</small>
     </footer>
 
     <script src="order-detail.js"></script>
