@@ -6,6 +6,9 @@ const ORDER_TASK_STATUS_PENDING = 'pendiente';
 const ORDER_TASK_STATUS_COMPLETED = 'completado';
 const KANBAN_FETCH_PAGE_SIZE = 100;
 const KANBAN_FALLBACK_STATUS = 'Sin estado';
+const KANBAN_DELIVERED_RETENTION_DAYS = 4;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 
 
 const state = {
@@ -471,6 +474,30 @@ function normalizeText(value) {
 
 function isOrderDelivered(status) {
   return typeof status === 'string' && status.trim().toLowerCase() === 'entregado';
+}
+
+function isDeliveredOrderExpired(order) {
+  if (!order || !isOrderDelivered(order.status)) {
+    return false;
+  }
+  const referenceDate =
+    parseDateValue(order.delivery_date) || parseDateValue(order.updated_at);
+  if (!referenceDate) {
+    return false;
+  }
+  const now = new Date();
+  const diff = now.getTime() - referenceDate.getTime();
+  return diff >= KANBAN_DELIVERED_RETENTION_DAYS * MS_PER_DAY;
+}
+
+function shouldIncludeOrderInKanban(order) {
+  if (!order) {
+    return false;
+  }
+  if (isDeliveredOrderExpired(order)) {
+    return false;
+  }
+  return true;
 }
 
 function isDeliveryDateOverdue(deliveryDateString, status) {
@@ -1644,6 +1671,32 @@ function updateHeaderSession() {
   }
 }
 
+function getUserDisplayName(user) {
+  if (!user || typeof user !== 'object') {
+    return '';
+  }
+  if (typeof user.full_name === 'string' && user.full_name.trim()) {
+    return user.full_name.trim();
+  }
+  if (typeof user.username === 'string' && user.username.trim()) {
+    return user.username.trim();
+  }
+  return '';
+}
+
+function updateHeaderSession() {
+  const isAuthenticated = Boolean(state.token && state.user);
+  if (headerSessionInfo) {
+    headerSessionInfo.classList.toggle('hidden', !isAuthenticated);
+  }
+  if (headerUserNameElement) {
+    headerUserNameElement.textContent = isAuthenticated ? getUserDisplayName(state.user) : '';
+  }
+  if (headerLogoutButton) {
+    headerLogoutButton.disabled = !isAuthenticated;
+  }
+}
+
 function updateNavigationForAuth() {
   const isAuthenticated = Boolean(state.token);
   if (panelNavButton) {
@@ -1902,7 +1955,9 @@ async function loadKanbanOrders({ force = false } = {}) {
       page += 1;
     }
 
-    state.kanbanOrders = collected;
+    const filteredOrders = collected.filter(shouldIncludeOrderInKanban);
+    state.kanbanOrders = filteredOrders;
+
     state.kanbanLastUpdated = new Date().toISOString();
     state.kanbanNeedsRefresh = false;
     state.kanbanError = null;
