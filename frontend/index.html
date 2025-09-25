@@ -4,31 +4,113 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Portal de Sastrería</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Lato:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header class="top-bar">
-      <div class="container">
-        <h1>Portal de Sastrería</h1>
-        <nav class="main-nav">
-          <div class="main-nav-buttons">
-            <button class="nav-button active" data-view="client-view">Clientes</button>
-            <button
-              class="nav-button hidden"
-              data-view="staff-view"
-              id="panelNavButton"
+    <header class="site-header">
+      <div class="top-info">
+        <div class="container top-info-inner">
+          <a
+            class="top-info-highlight"
+            href="https://wa.me/+593968059560"
+            target="_blank"
+            rel="noopener"
+          >
+            <span aria-hidden="true">WA</span>
+            Escríbenos y te asesoramos gratis
+          </a>
+          <nav class="top-links" aria-label="Información de la tienda">
+            <a href="https://www.adams.com.ec/sobre-nosotros/" target="_blank" rel="noopener"
+              >Sobre nosotros</a
             >
-              Panel
+            <a href="https://www.adams.com.ec/blog/" target="_blank" rel="noopener">Viernes de blog</a>
+            <a href="https://www.adams.com.ec/contactanos/" target="_blank" rel="noopener">Contáctanos</a>
+            <a href="https://www.adams.com.ec/faq/" target="_blank" rel="noopener">FAQ</a>
+          </nav>
+        </div>
+      </div>
+      <div class="main-header">
+        <div class="container main-header-inner">
+          <a
+            class="brand"
+            href="https://www.adams.com.ec/"
+            target="_blank"
+            rel="noopener"
+            aria-label="Adams Fashion Store"
+          >
+            <img
+              src="https://www.adams.com.ec/wp-content/uploads/2020/11/adam-.png"
+              alt="Adams Fashion Store"
+              loading="lazy"
+            />
+          </a>
+          <nav class="main-nav" aria-label="Navegación principal">
+            <div class="main-nav-buttons" role="tablist">
+              <button class="nav-button active" data-view="client-view">Clientes</button>
+              <button
+                class="nav-button hidden"
+                data-view="staff-view"
+                id="panelNavButton"
+              >
+                Panel
+              </button>
+            </div>
+            <button type="button" class="login-button" id="loginNavButton">
+              Iniciar sesión
             </button>
-          </div>
-          <button type="button" class="login-button" id="loginNavButton">
-            Iniciar sesión
-          </button>
-        </nav>
+          </nav>
+        </div>
+      </div>
+      <div class="category-bar hidden" id="categoryBar">
+        <div class="container category-bar-inner">
+          <nav class="category-nav" aria-label="Atajos del panel administrativo">
+            <button type="button" class="category-pill" data-target-tab="orderListPanel">
+              Órdenes registradas
+            </button>
+            <button type="button" class="category-pill" data-target-tab="orderKanbanPanel">
+              Kanban de órdenes
+            </button>
+            <button
+              type="button"
+              class="category-pill"
+              data-target-tab="orderCreatePanel"
+              data-hide-roles="sastre"
+            >
+              Crear orden
+            </button>
+            <button type="button" class="category-pill" data-target-tab="customersPanel">
+              Clientes
+            </button>
+            <button
+              type="button"
+              class="category-pill"
+              data-target-tab="usersPanel"
+              data-required-role="administrador"
+            >
+              Usuarios
+            </button>
+            <button
+              type="button"
+              class="category-pill"
+              data-target-tab="auditLogPanel"
+              data-required-role="administrador"
+            >
+              Bitácora
+            </button>
+          </nav>
+          <span class="category-extra hidden" id="categoryBarExtra">Acceso administrativo</span>
+        </div>
       </div>
     </header>
 
     <main class="container">
+      <h1 class="sr-only">Portal de Sastrería</h1>
       <section id="client-view" class="view active">
         <div class="card">
           <h2>Consulta el estado de tu orden</h2>

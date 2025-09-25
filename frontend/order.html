@@ -4,17 +4,75 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Detalle de la orden | Portal de Sastrería</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Lato:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header class="top-bar">
-      <div class="container order-detail-top">
-        <h1>Portal de Sastrería</h1>
-        <a class="link-button" href="index.html">Volver al panel</a>
+    <header class="site-header">
+      <div class="top-info">
+        <div class="container top-info-inner">
+          <a
+            class="top-info-highlight"
+            href="https://wa.me/+593968059560"
+            target="_blank"
+            rel="noopener"
+          >
+            <span aria-hidden="true">WA</span>
+            Escríbenos y te asesoramos gratis
+          </a>
+          <nav class="top-links" aria-label="Información de la tienda">
+            <a href="https://www.adams.com.ec/sobre-nosotros/" target="_blank" rel="noopener"
+              >Sobre nosotros</a
+            >
+            <a href="https://www.adams.com.ec/blog/" target="_blank" rel="noopener">Viernes de blog</a>
+            <a href="https://www.adams.com.ec/contactanos/" target="_blank" rel="noopener">Contáctanos</a>
+            <a href="https://www.adams.com.ec/faq/" target="_blank" rel="noopener">FAQ</a>
+          </nav>
+        </div>
+      </div>
+      <div class="main-header">
+        <div class="container main-header-inner">
+          <a
+            class="brand"
+            href="https://www.adams.com.ec/"
+            target="_blank"
+            rel="noopener"
+            aria-label="Adams Fashion Store"
+          >
+            <img
+              src="https://www.adams.com.ec/wp-content/uploads/2020/11/adam-.png"
+              alt="Adams Fashion Store"
+              loading="lazy"
+            />
+          </a>
+          <nav class="main-nav" aria-label="Navegación principal">
+            <div class="main-nav-buttons">
+              <a class="nav-button" href="index.html">Portal</a>
+            </div>
+            <a class="login-button" href="index.html">Volver al panel</a>
+          </nav>
+        </div>
+      </div>
+      <div class="category-bar">
+        <div class="container category-bar-inner">
+          <nav class="category-nav" aria-label="Categorías destacadas">
+            <a class="category-pill is-highlight" href="#orderDetailContent">Seguimiento</a>
+            <a class="category-pill" href="#orderDetailMeasurements">Ajustes</a>
+            <a class="category-pill" href="#orderDetailTasks">Entrega</a>
+            <a class="category-pill" href="#orderDetailNotes">Historial</a>
+          </nav>
+          <span class="category-extra">Actualización en línea</span>
+        </div>
       </div>
     </header>
 
     <main class="container">
+      <h1 class="sr-only">Detalle de la orden</h1>
       <section class="card order-detail-card">
         <div class="order-detail-page-header">
           <div class="order-detail-heading">
