@@ -180,6 +180,7 @@ const orderDetailNotesTextarea = document.getElementById('orderDetailNotes');
 const orderDetailMeasurementsContainer = document.getElementById('orderDetailMeasurements');
 const orderTasksList = document.getElementById('orderTasksList');
 const orderTaskForm = document.getElementById('orderTaskForm');
+const orderTaskAddButton = document.getElementById('orderTaskAddButton');
 const orderTaskDescriptionInput = document.getElementById('orderTaskDescription');
 const orderTaskResponsibleSelect = document.getElementById('orderTaskResponsibleSelect');
 const orderTasksPermissionsNotice = document.getElementById('orderTasksPermissionsNotice');
@@ -823,7 +824,9 @@ async function handleOrderTaskToggle(taskId, checkbox) {
 }
 
 async function handleOrderTaskCreate(event) {
-  event.preventDefault();
+  if (event) {
+    event.preventDefault();
+  }
   if (state.selectedOrderId === null) {
     showToast('Selecciona una orden antes de agregar tareas.', 'error');
     return;
@@ -845,9 +848,10 @@ async function handleOrderTaskCreate(event) {
     return;
   }
 
-  const submitButton = orderTaskForm?.querySelector('button[type="submit"]');
+  const submitButton = orderTaskAddButton;
   if (submitButton) {
     submitButton.disabled = true;
+    submitButton.setAttribute('aria-busy', 'true');
   }
   try {
     const body = { description: descriptionValue };
@@ -866,6 +870,7 @@ async function handleOrderTaskCreate(event) {
   } finally {
     if (submitButton) {
       submitButton.disabled = false;
+      submitButton.removeAttribute('aria-busy');
     }
   }
 }
@@ -3092,8 +3097,17 @@ if (updateOrderForm) {
   updateOrderForm.addEventListener('submit', handleOrderUpdate);
 }
 
-if (orderTaskForm) {
-  orderTaskForm.addEventListener('submit', handleOrderTaskCreate);
+if (orderTaskAddButton) {
+  orderTaskAddButton.addEventListener('click', handleOrderTaskCreate);
+}
+
+if (orderTaskDescriptionInput) {
+  orderTaskDescriptionInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      void handleOrderTaskCreate();
+    }
+  });
 }
 
 if (createUserForm) {
