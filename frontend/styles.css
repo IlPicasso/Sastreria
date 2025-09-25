@@ -72,42 +72,48 @@ a:hover {
   height: auto;
 }
 
-.header-actions {
+.header-search {
+  flex: 1 1 360px;
   display: flex;
   align-items: center;
-  gap: 1.1rem;
+  gap: 0.75rem;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.45rem 0.75rem 0.45rem 1.1rem;
 }
 
-.header-action {
-  font-family: "Montserrat", "Lato", sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  font-size: 0.75rem;
+.header-search input {
+  border: none;
+  background: transparent;
+  flex: 1;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.header-search input::placeholder {
+  color: var(--muted);
+}
+
+.header-search input:focus {
+  outline: none;
+}
+
+.header-search button {
   border: none;
   background: none;
-  color: var(--primary);
-  cursor: pointer;
+  color: var(--muted);
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  cursor: pointer;
 }
 
-.header-action:hover {
-  color: var(--primary-dark);
-}
-
-.nav-band {
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.nav-band-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.5rem;
-  padding: 0.85rem 0;
+.header-search button:hover {
+  color: var(--primary);
 }
 
 .header-actions {
@@ -579,12 +585,13 @@ button[disabled] {
   margin-top: clamp(1rem, 4vw, 2.2rem);
 }
 
-.order-header {
-  padding-bottom: clamp(2rem, 6vw, 3.5rem);
+.input-group {
+  display: flex;
+  gap: 0.75rem;
 }
 
-.order-header-main {
-  justify-content: space-between;
+.input-group input {
+  flex: 1;
 }
 
 
