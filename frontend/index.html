@@ -44,12 +44,28 @@
       <div class="hero">
         <div class="container hero-content">
           <div class="hero-text">
-            <p class="hero-kicker">Boutique Adams</p>
-            <h1>Seguimiento de órdenes</h1>
+            <p class="hero-kicker">Extensión digital Adams</p>
+            <h1>Tu sastrería de confianza, ahora en línea</h1>
             <p class="hero-copy">
-              Consulta el avance de tus prendas hechas a medida y mantén la elegancia Adams en
-              cada entrega.
+              Consulta el estado de tus confecciones y colabora con nuestro equipo experto
+              en sastrería desde cualquier dispositivo.
             </p>
+            <div class="hero-actions">
+              <button
+                type="button"
+                class="primary hero-cta"
+                onclick="document.getElementById('orderNumber').focus();"
+              >
+                Consultar orden
+              </button>
+              <a
+                class="hero-link"
+                href="#staff-view"
+                onclick="setActiveView('staff-view'); return false;"
+              >
+                Ingreso para personal
+              </a>
+            </div>
           </div>
         </div>
       </div>
