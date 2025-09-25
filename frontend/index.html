@@ -556,7 +556,7 @@
                     <div id="orderTasksList" class="order-tasks-list muted">
                       Selecciona una orden para ver el checklist.
                     </div>
-                    <form id="orderTaskForm" class="order-task-form hidden">
+                    <div id="orderTaskForm" class="order-task-form hidden" role="group" aria-label="Agregar trabajo al checklist">
                       <div class="order-task-fields">
                         <label class="sr-only" for="orderTaskDescription">Descripción del trabajo</label>
                         <input
@@ -565,13 +565,13 @@
                           maxlength="255"
                           placeholder="Describe el trabajo a registrar"
                         />
-                        <button type="submit" class="secondary">Agregar</button>
+                        <button type="button" class="secondary" id="orderTaskAddButton">Agregar</button>
                       </div>
                       <p class="muted small">
                         Añade los trabajos pendientes manualmente y marca cada casilla cuando el sastre los
                         complete.
                       </p>
-                    </form>
+                    </div>
                     <p id="orderTasksPermissionsNotice" class="muted small hidden">
                       Solo los sastres o administradores pueden modificar el checklist.
                     </p>
