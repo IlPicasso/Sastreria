@@ -1777,9 +1777,10 @@ th {
   max-width: 100%;
 }
 
+
 .status-badge.status-neutral {
   background: rgba(120, 120, 120, 0.18);
-  color: var(--primary-contrast);
+  color: var(--primary);
 }
 
 .status-badge.status-info {
@@ -1789,7 +1790,7 @@ th {
 
 .status-badge.status-success {
   background: rgba(0, 0, 0, 0.18);
-  color: var(--primary-contrast);
+  color: var(--primary);
 }
 
 .status-badge.status-warning {
@@ -1799,7 +1800,7 @@ th {
 
 .status-badge.status-danger {
   background: rgba(0, 0, 0, 0.24);
-  color: var(--primary-contrast);
+  color: var(--primary);
 }
 
 .table-wrapper pre {
