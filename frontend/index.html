@@ -19,53 +19,78 @@
   </head>
   <body>
     <header class="site-header">
-      <div class="top-strip">
-        <div class="container top-strip-content">
-          <span class="top-strip-item">Boutiques Adams</span>
-          <span class="top-strip-item">Estilo a tu medida</span>
-          <span class="top-strip-item">Atención personalizada</span>
-        </div>
-      </div>
 
       <div class="container header-main">
         <a class="brand" href="index.html" aria-label="Inicio Adams">
           <img src="assets/adams-logo.svg" alt="Adams Fashion Store" class="brand-logo" />
         </a>
-        <nav class="header-nav" aria-label="Navegación principal">
-          <button class="nav-link active" data-view="client-view">Seguimiento</button>
-          <button class="nav-link hidden" data-view="staff-view" id="panelNavButton">
-            Equipo Adams
-          </button>
-        </nav>
         <div class="header-actions">
-          <button type="button" class="header-cta" id="loginNavButton">Acceder</button>
+          <button type="button" class="header-action" id="loginNavButton">Acceder</button>
+        <form class="header-search" role="search">
+          <label class="sr-only" for="headerSearch">Buscar en Adams</label>
+          <input id="headerSearch" type="search" placeholder="Buscar en Adams" />
+          <button type="submit" aria-label="Buscar">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M15.5 14h-.79l-.28-.27a6 6 0 1 0-.71.71l.27.28v.79l4.5 4.49 1.49-1.49L15.5 14Zm-5.5 0a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z"
+                fill="currentColor"
+              />
+            </svg>
+          </button>
+        </form>
+        <div class="header-actions">
+          <button type="button" class="header-action" id="loginNavButton">Acceder</button>
+          <a class="header-action" href="#" aria-label="Favoritos">
+            <span class="header-action-icon" aria-hidden="true">♡</span>
+            <span class="sr-only">Favoritos</span>
+          </a>
+          <a class="header-action" href="#" aria-label="Carrito">
+            <span class="header-action-icon" aria-hidden="true">🛍</span>
+            <span class="sr-only">Carrito</span>
+          </a>
         </div>
       </div>
-      <div class="hero">
-        <div class="container">
-          <div class="hero-card">
-            <p class="hero-kicker">Extensión digital Adams</p>
-            <h1>Tu sastrería de confianza, ahora en línea</h1>
-            <p>
-              Consulta el estado de tus confecciones y colabora con nuestro equipo experto
-              en sastrería desde cualquier dispositivo.
-            </p>
-            <div class="hero-actions">
-              <button
-                type="button"
-                class="primary hero-cta"
-                onclick="document.getElementById('orderNumber').focus();"
-              >
-                Consultar orden
-              </button>
-              <a
-                class="hero-link"
-                href="#staff-view"
-                onclick="setActiveView('staff-view'); return false;"
-              >
-                Ingreso para personal
-              </a>
-            </div>
+      <div class="nav-band" aria-label="Navegación principal">
+        <div class="container nav-band-content">
+          <div class="main-nav-buttons">
+            <button class="nav-button active" data-view="client-view">Seguimiento</button>
+            <button class="nav-button hidden" data-view="staff-view" id="panelNavButton">
+              Equipo Adams
+            </button>
+          </div>
+          <span class="nav-tag">Portal interno Adams</span>
+        </div>
+      </div>
+      <div class="container hero">
+        <div class="hero-card">
+          <p class="hero-kicker">Extensión digital Adams</p>
+          <h1>Tu sastrería de confianza, ahora en línea</h1>
+          <p>
+            Consulta el estado de tus confecciones y colabora con nuestro equipo experto
+            en sastrería desde cualquier dispositivo.
+          </p>
+          <div class="hero-actions">
+            <button
+              type="button"
+              class="primary hero-cta"
+              onclick="document.getElementById('orderNumber').focus();"
+            >
+              Consultar orden
+
+            </button>
+            <a
+              class="hero-link"
+              href="#staff-view"
+              onclick="setActiveView('staff-view'); return false;"
+            >
+              Ingreso para personal
+            </a>
+          </div>
+
+          <div class="hero-badges" role="list">
+            <span class="hero-badge" role="listitem">Boutiques Adams</span>
+            <span class="hero-badge" role="listitem">Atención personalizada</span>
+            <span class="hero-badge" role="listitem">Hecho a tu medida</span>
           </div>
         </div>
       </div>
