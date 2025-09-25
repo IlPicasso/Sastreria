@@ -257,6 +257,9 @@ function setActiveView(viewId) {
     loginNavButton.classList.toggle('active', shouldHighlightLogin);
   }
   updateNavigationForAuth();
+  if (viewId === 'staff-view') {
+    syncStaffViewVisibility();
+  }
 }
 
 navButtons.forEach((btn) => {
@@ -344,6 +347,21 @@ function setActiveDashboardTab(tabId = 'orderListPanel') {
     renderOrderKanban();
   }
   syncCreateOrderFormDisabled();
+}
+
+function syncStaffViewVisibility() {
+  const isAuthenticated = Boolean(state.token);
+  if (staffDashboard) {
+    staffDashboard.classList.toggle('hidden', !isAuthenticated);
+  }
+  if (staffLoginCard) {
+    staffLoginCard.classList.toggle('hidden', isAuthenticated);
+  }
+  if (isAuthenticated) {
+    setActiveDashboardTab(activeDashboardTab || 'orderListPanel');
+  } else {
+    activeDashboardTab = 'orderListPanel';
+  }
 }
 
 dashboardTabButtons.forEach((btn) => {
@@ -1618,21 +1636,38 @@ function updateUserInfo() {
 }
 
 function showDashboard() {
-  if (staffDashboard) {
-    staffDashboard.classList.remove('hidden');
-  }
-  if (staffLoginCard) {
-    staffLoginCard.classList.add('hidden');
-  }
-  setActiveDashboardTab('orderListPanel');
+  activeDashboardTab = 'orderListPanel';
+  syncStaffViewVisibility();
 }
 
 function hideDashboard() {
-  if (staffDashboard) {
-    staffDashboard.classList.add('hidden');
+  activeDashboardTab = 'orderListPanel';
+  syncStaffViewVisibility();
+}
+
+function getUserDisplayName(user) {
+  if (!user || typeof user !== 'object') {
+    return '';
   }
-  if (staffLoginCard) {
-    staffLoginCard.classList.remove('hidden');
+  if (typeof user.full_name === 'string' && user.full_name.trim()) {
+    return user.full_name.trim();
+  }
+  if (typeof user.username === 'string' && user.username.trim()) {
+    return user.username.trim();
+  }
+  return '';
+}
+
+function updateHeaderSession() {
+  const isAuthenticated = Boolean(state.token && state.user);
+  if (headerSessionInfo) {
+    headerSessionInfo.classList.toggle('hidden', !isAuthenticated);
+  }
+  if (headerUserNameElement) {
+    headerUserNameElement.textContent = isAuthenticated ? getUserDisplayName(state.user) : '';
+  }
+  if (headerLogoutButton) {
+    headerLogoutButton.disabled = !isAuthenticated;
   }
 }
 
@@ -1674,6 +1709,7 @@ function updateNavigationForAuth() {
     }
   }
   updateHeaderSession();
+  syncStaffViewVisibility();
 }
 
 async function bootstrapAuthenticatedSession({ showWelcomeToast = false } = {}) {
