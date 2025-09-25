@@ -10,7 +10,8 @@
     <header class="top-bar">
       <div class="container order-detail-top">
         <h1>Portal de Sastrería</h1>
-        <a class="link-button" href="index.html">Volver al panel</a>
+        <a class="link-button top-bar-link" href="index.html">Volver al panel</a>
+
       </div>
     </header>
 
@@ -76,6 +77,61 @@
           </section>
 
           <section class="order-detail-section">
+            <div class="order-detail-section-header">
+              <h3>Actualizar orden</h3>
+              <p id="orderEditPermissionsNotice" class="muted small hidden">
+                Tu rol no permite modificar la orden desde esta vista.
+              </p>
+            </div>
+            <form id="orderEditForm" class="order-edit-form hidden" novalidate>
+              <div class="order-edit-grid">
+                <div class="order-edit-field">
+                  <label for="orderEditContact">Contacto</label>
+                  <input type="text" id="orderEditContact" autocomplete="tel" />
+                </div>
+                <div class="order-edit-field">
+                  <label for="orderEditInvoice">Número de factura</label>
+                  <input type="text" id="orderEditInvoice" autocomplete="off" />
+                </div>
+                <div class="order-edit-field">
+                  <label for="orderEditStatus">Estado</label>
+                  <select id="orderEditStatus"></select>
+                </div>
+                <div class="order-edit-field">
+                  <label for="orderEditTailor">Sastre asignado</label>
+                  <select id="orderEditTailor"></select>
+                </div>
+                <div class="order-edit-field">
+                  <label for="orderEditVendor">Vendedor asignado</label>
+                  <select id="orderEditVendor"></select>
+                </div>
+                <div class="order-edit-field">
+                  <label for="orderEditOrigin">Establecimiento remitente</label>
+                  <select id="orderEditOrigin" required></select>
+                </div>
+                <div class="order-edit-field">
+                  <label for="orderEditDelivery">Fecha y hora de entrega</label>
+                  <input type="datetime-local" id="orderEditDelivery" />
+                </div>
+                <div class="order-edit-field order-edit-notes">
+                  <label for="orderEditNotes">Notas</label>
+                  <textarea id="orderEditNotes" rows="3"></textarea>
+                </div>
+              </div>
+              <div
+                id="orderEditFeedback"
+                class="order-edit-feedback hidden"
+                role="status"
+                aria-live="polite"
+              ></div>
+              <div class="order-edit-actions">
+                <button type="submit" class="primary">Guardar cambios</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="order-detail-section">
+
             <h3>Notas</h3>
             <p id="orderDetailNotes" class="order-detail-notes muted">
               Sin notas registradas.
