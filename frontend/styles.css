@@ -261,6 +261,65 @@ body {
   transform: translateY(-1px);
 }
 
+.category-bar {
+  background: var(--primary);
+  color: var(--primary-contrast);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.category-bar-inner {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 0.65rem 0;
+  overflow-x: auto;
+}
+
+.category-nav {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.category-extra {
+  margin-left: auto;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #f7d9a0;
+  white-space: nowrap;
+}
+
+.category-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 1rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  text-decoration: none;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.78);
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.category-pill.is-highlight {
+  background: var(--accent);
+  color: var(--primary);
+}
+
+.category-pill:hover,
+.category-pill:focus-visible {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #ffffff;
+}
+
 main {
   padding: clamp(2.5rem, 4vw, 3.5rem) 0;
 }
@@ -281,6 +340,7 @@ main {
   margin-bottom: 2.4rem;
   border: 1px solid rgba(7, 10, 12, 0.05);
   box-shadow: 0 24px 55px rgba(var(--shadow-color), 0.09);
+
 }
 
 h2 {
@@ -367,7 +427,7 @@ button.primary {
 }
 
 button.primary:hover {
-  background: var(--primary-dark);
+  background: var(--accent-dark);
   transform: translateY(-1px);
   box-shadow: 0 14px 24px rgba(var(--shadow-color), 0.12);
 }
@@ -415,7 +475,7 @@ button.danger.ghost:hover {
 
 button.full-width {
   width: 100%;
-  background: var(--primary);
+  background: var(--accent);
   border: none;
   color: var(--primary-contrast);
   padding: 0.8rem;
@@ -800,6 +860,7 @@ button[disabled] {
 
   .brand {
     justify-content: center;
+
   }
 
   .main-nav {

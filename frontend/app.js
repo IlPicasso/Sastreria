@@ -432,6 +432,13 @@ setActiveDashboardTab(activeDashboardTab);
 updateDashboardShortcutHighlight();
 updateDashboardShortcutVisibility();
 
+if (dashboardShortcutButtons.length) {
+  dashboardShortcutButtons.forEach((shortcut) => {
+    const shortcutTab = shortcut.dataset.targetTab;
+    shortcut.classList.toggle('is-highlight', shortcutTab === activeDashboardTab);
+  });
+}
+
 if (currentYearElement) {
   currentYearElement.textContent = new Date().getFullYear();
 }
