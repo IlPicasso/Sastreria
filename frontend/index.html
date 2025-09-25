@@ -67,29 +67,44 @@
           </nav>
         </div>
       </div>
-      <div class="category-bar">
+      <div class="category-bar hidden" id="categoryBar">
         <div class="container category-bar-inner">
           <nav class="category-nav" aria-label="Atajos del panel administrativo">
-            <button type="button" class="category-pill is-highlight" data-target-tab="orderListPanel">
+            <button type="button" class="category-pill" data-target-tab="orderListPanel">
               Órdenes registradas
             </button>
             <button type="button" class="category-pill" data-target-tab="orderKanbanPanel">
               Kanban de órdenes
             </button>
-            <button type="button" class="category-pill" data-target-tab="orderCreatePanel">
+            <button
+              type="button"
+              class="category-pill"
+              data-target-tab="orderCreatePanel"
+              data-hide-roles="sastre"
+            >
               Crear orden
             </button>
             <button type="button" class="category-pill" data-target-tab="customersPanel">
               Clientes
             </button>
-            <button type="button" class="category-pill" data-target-tab="usersPanel">
+            <button
+              type="button"
+              class="category-pill"
+              data-target-tab="usersPanel"
+              data-required-role="administrador"
+            >
               Usuarios
             </button>
-            <button type="button" class="category-pill" data-target-tab="auditLogPanel">
+            <button
+              type="button"
+              class="category-pill"
+              data-target-tab="auditLogPanel"
+              data-required-role="administrador"
+            >
               Bitácora
             </button>
           </nav>
-          <span class="category-extra">Acceso administrativo</span>
+          <span class="category-extra hidden" id="categoryBarExtra">Acceso administrativo</span>
         </div>
       </div>
     </header>

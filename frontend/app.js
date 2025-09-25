@@ -101,6 +101,8 @@ const views = document.querySelectorAll('.view');
 const navButtons = document.querySelectorAll('.nav-button');
 const panelNavButton = document.getElementById('panelNavButton');
 const loginNavButton = document.getElementById('loginNavButton');
+const categoryBar = document.getElementById('categoryBar');
+const categoryBarExtra = document.getElementById('categoryBarExtra');
 const dashboardTabButtons = document.querySelectorAll('.dashboard-tab');
 const dashboardPanels = document.querySelectorAll('.dashboard-panel');
 const orderCreateTabButton = document.getElementById('orderCreateTabButton');
@@ -258,15 +260,71 @@ navButtons.forEach((btn) => {
 
 const dashboardShortcutButtons = document.querySelectorAll('[data-target-tab]');
 
+function updateDashboardShortcutHighlight() {
+  if (!dashboardShortcutButtons.length) {
+    return;
+  }
+  dashboardShortcutButtons.forEach((shortcut) => {
+    const shouldHighlight =
+      shortcut.dataset.targetTab === activeDashboardTab && !shortcut.classList.contains('hidden');
+    shortcut.classList.toggle('is-highlight', shouldHighlight);
+  });
+}
+
+function updateDashboardShortcutVisibility() {
+  const isAuthenticated = Boolean(state.token);
+  const userRole = state.user?.role || null;
+
+  if (categoryBar) {
+    categoryBar.classList.toggle('hidden', !isAuthenticated);
+  }
+  if (categoryBarExtra) {
+    categoryBarExtra.classList.toggle('hidden', !isAuthenticated);
+  }
+
+  if (!dashboardShortcutButtons.length) {
+    return;
+  }
+
+  let hasVisibleActiveShortcut = false;
+
+  dashboardShortcutButtons.forEach((btn) => {
+    const requiredRole = btn.dataset.requiredRole || null;
+    const hideRoles = (btn.dataset.hideRoles || '')
+      .split(',')
+      .map((role) => role.trim())
+      .filter(Boolean);
+    const lacksRequiredRole = Boolean(requiredRole) && userRole !== requiredRole;
+    const hiddenForRole = hideRoles.length > 0 && (!userRole || hideRoles.includes(userRole));
+    const shouldHide = !isAuthenticated || lacksRequiredRole || hiddenForRole;
+    btn.classList.toggle('hidden', shouldHide);
+    if (!shouldHide && btn.dataset.targetTab === activeDashboardTab) {
+      hasVisibleActiveShortcut = true;
+    }
+  });
+
+  if (isAuthenticated && !hasVisibleActiveShortcut) {
+    const fallback = Array.from(dashboardShortcutButtons).find(
+      (btn) => !btn.classList.contains('hidden')
+    );
+    if (fallback) {
+      setActiveDashboardTab(fallback.dataset.targetTab);
+      return;
+    }
+  }
+
+  updateDashboardShortcutHighlight();
+}
+
 dashboardShortcutButtons.forEach((btn) => {
   btn.addEventListener('click', () => {
+    if (btn.classList.contains('hidden')) {
+      return;
+    }
     const targetTab = btn.dataset.targetTab;
     setActiveView('staff-view');
     setActiveDashboardTab(targetTab);
-    dashboardShortcutButtons.forEach((shortcut) => {
-      const shortcutTab = shortcut.dataset.targetTab;
-      shortcut.classList.toggle('is-highlight', shortcutTab === activeDashboardTab);
-    });
+    updateDashboardShortcutHighlight();
     const destination = state.token ? document.getElementById('staffDashboard') : document.getElementById('staffLogin');
     if (destination && destination.scrollIntoView) {
       destination.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -358,6 +416,7 @@ function setActiveDashboardTab(tabId = 'orderListPanel') {
     renderOrderKanban();
   }
   syncCreateOrderFormDisabled();
+  updateDashboardShortcutHighlight();
 }
 
 dashboardTabButtons.forEach((btn) => {
@@ -370,6 +429,8 @@ dashboardTabButtons.forEach((btn) => {
 });
 
 setActiveDashboardTab(activeDashboardTab);
+updateDashboardShortcutHighlight();
+updateDashboardShortcutVisibility();
 
 if (dashboardShortcutButtons.length) {
   dashboardShortcutButtons.forEach((shortcut) => {
@@ -1606,6 +1667,7 @@ function updateUserInfo() {
   }
   updateUserCreationForm();
   renderOrderTasks();
+  updateDashboardShortcutVisibility();
 }
 
 function showDashboard() {
@@ -1638,6 +1700,7 @@ function updateNavigationForAuth() {
       loginNavButton.classList.remove('active');
     }
   }
+  updateDashboardShortcutVisibility();
 }
 
 async function bootstrapAuthenticatedSession({ showWelcomeToast = false } = {}) {
