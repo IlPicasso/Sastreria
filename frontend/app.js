@@ -256,6 +256,30 @@ navButtons.forEach((btn) => {
   btn.addEventListener('click', () => setActiveView(btn.dataset.view));
 });
 
+const dashboardShortcutButtons = document.querySelectorAll('[data-target-tab]');
+
+dashboardShortcutButtons.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const targetTab = btn.dataset.targetTab;
+    setActiveView('staff-view');
+    setActiveDashboardTab(targetTab);
+    dashboardShortcutButtons.forEach((shortcut) => {
+      const shortcutTab = shortcut.dataset.targetTab;
+      shortcut.classList.toggle('is-highlight', shortcutTab === activeDashboardTab);
+    });
+    const destination = state.token ? document.getElementById('staffDashboard') : document.getElementById('staffLogin');
+    if (destination && destination.scrollIntoView) {
+      destination.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    if (!state.token) {
+      const usernameInput = document.getElementById('username');
+      if (usernameInput) {
+        usernameInput.focus();
+      }
+    }
+  });
+});
+
 if (loginNavButton) {
   loginNavButton.addEventListener('click', () => {
     setActiveView('staff-view');
@@ -346,6 +370,13 @@ dashboardTabButtons.forEach((btn) => {
 });
 
 setActiveDashboardTab(activeDashboardTab);
+
+if (dashboardShortcutButtons.length) {
+  dashboardShortcutButtons.forEach((shortcut) => {
+    const shortcutTab = shortcut.dataset.targetTab;
+    shortcut.classList.toggle('is-highlight', shortcutTab === activeDashboardTab);
+  });
+}
 
 if (currentYearElement) {
   currentYearElement.textContent = new Date().getFullYear();
