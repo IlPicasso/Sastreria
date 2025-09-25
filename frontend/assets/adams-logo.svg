@@ -1,28 +1,27 @@
-<svg width="220" height="80" viewBox="0 0 220 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <title>Adams Fashion Store</title>
-  <text
-    x="110"
-    y="42"
-    text-anchor="middle"
-    font-family="'Montserrat', 'Lato', 'Helvetica Neue', Arial, sans-serif"
-    font-size="38"
-    font-weight="600"
-    letter-spacing="0.32em"
-    fill="#0d0f10"
-  >
-    ADAMS
-  </text>
-  <text
-    x="110"
-    y="60"
-    text-anchor="middle"
-    font-family="'Montserrat', 'Lato', 'Helvetica Neue', Arial, sans-serif"
-    font-size="12"
-    font-weight="500"
-    letter-spacing="0.35em"
-    fill="#5f6368"
-  >
-    MEN • WOMEN • KID
-  </text>
-
+<svg width="220" height="64" viewBox="0 0 220 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="brandGradient" x1="0" y1="0" x2="220" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#041E42" />
+      <stop offset="1" stop-color="#0B345C" />
+    </linearGradient>
+    <linearGradient id="accentGradient" x1="160" y1="16" x2="210" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F9A620" />
+      <stop offset="1" stop-color="#F26430" />
+    </linearGradient>
+  </defs>
+  <g filter="url(#shadow)">
+    <rect x="6" y="6" width="208" height="52" rx="18" fill="url(#brandGradient)" />
+  </g>
+  <path d="M190 18L204 32L190 46" fill="url(#accentGradient)" opacity="0.9" />
+  <text x="110" y="35" text-anchor="middle" font-family="'Montserrat', 'Arial Black', 'Arial', sans-serif" font-size="28" font-weight="700" letter-spacing="0.16em" fill="#FFFFFF">ADAMS</text>
+  <text x="110" y="50" text-anchor="middle" font-family="'Source Sans 3', 'Helvetica Neue', Arial, sans-serif" font-size="12" letter-spacing="0.32em" fill="#F9A620">SASTRERÍA</text>
+  <defs>
+    <filter id="shadow" x="0" y="0" width="220" height="64" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feOffset dx="0" dy="4" />
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feComposite in="blur" in2="SourceAlpha" operator="out" />
+      <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.15 0" />
+      <feBlend in="SourceGraphic" />
+    </filter>
+  </defs>
 </svg>
