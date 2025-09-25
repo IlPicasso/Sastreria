@@ -188,7 +188,6 @@ a:hover {
   background: var(--primary);
   color: var(--surface);
   box-shadow: 0 16px 30px var(--shadow-soft);
-
 }
 
 .header-link {
@@ -297,7 +296,6 @@ a:hover {
 .hero-compact {
   padding: clamp(1.2rem, 4.5vw, 2.3rem) 0 clamp(1.8rem, 4.5vw, 2.6rem);
 }
-
 
 main {
   padding: clamp(1.5rem, 4vw, 2.5rem) 0 clamp(2.4rem, 6vw, 3.2rem);
@@ -510,16 +508,6 @@ button[disabled] {
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
-}
-
-
-.order-header {
-  padding-bottom: clamp(1.8rem, 5vw, 3rem);
-}
-
-.order-hero {
-  margin-top: clamp(1rem, 4vw, 2.2rem);
-
 }
 
 
@@ -2414,6 +2402,7 @@ th {
   .top-strip-content {
     gap: 0.5rem 1rem;
   }
+
 
   .header-main {
     flex-direction: column;
