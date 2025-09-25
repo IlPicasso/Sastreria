@@ -103,6 +103,7 @@ const panelNavButton = document.getElementById('panelNavButton');
 const loginNavButton = document.getElementById('loginNavButton');
 const categoryBar = document.getElementById('categoryBar');
 const dashboardTabButtons = document.querySelectorAll('.dashboard-tab');
+const dashboardSubnav = document.querySelector('.dashboard-subnav');
 const dashboardPanels = document.querySelectorAll('.dashboard-panel');
 const orderCreateTabButton = document.getElementById('orderCreateTabButton');
 const orderCreatePanel = document.getElementById('orderCreatePanel');
@@ -276,6 +277,11 @@ function updateDashboardShortcutVisibility() {
 
   if (categoryBar) {
     categoryBar.classList.toggle('hidden', !isAuthenticated);
+  }
+  if (dashboardSubnav) {
+    const shouldHideSubnav = isAuthenticated && categoryBar && !categoryBar.classList.contains('hidden');
+    dashboardSubnav.classList.toggle('hidden', shouldHideSubnav);
+    dashboardSubnav.setAttribute('aria-hidden', shouldHideSubnav ? 'true' : 'false');
   }
   if (!dashboardShortcutButtons.length) {
     return;
