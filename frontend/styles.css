@@ -301,6 +301,7 @@ main {
   margin-bottom: 2.4rem;
   border: 1px solid rgba(7, 10, 12, 0.05);
   box-shadow: 0 24px 55px rgba(var(--shadow-color), 0.09);
+
 }
 
 h2 {
