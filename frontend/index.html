@@ -50,10 +50,6 @@
               loading="lazy"
             />
           </a>
-          <div class="header-search" role="search">
-            <label for="siteSearch" class="sr-only">Buscar en la tienda</label>
-            <input id="siteSearch" type="search" placeholder="Buscar en Adams Fashion Store..." />
-          </div>
           <nav class="main-nav" aria-label="Navegación principal">
             <div class="main-nav-buttons" role="tablist">
               <button class="nav-button active" data-view="client-view">Clientes</button>
@@ -73,65 +69,27 @@
       </div>
       <div class="category-bar">
         <div class="container category-bar-inner">
-          <nav class="category-nav" aria-label="Categorías destacadas">
-            <a
-              class="category-pill is-highlight"
-              href="https://www.adams.com.ec/novedades/"
-              target="_blank"
-              rel="noopener"
-            >
-              Novedades
-            </a>
-            <a
-              class="category-pill"
-              href="https://www.adams.com.ec/categoria-producto/caballeros/"
-              target="_blank"
-              rel="noopener"
-            >
-              Caballeros
-            </a>
-            <a
-              class="category-pill"
-              href="https://www.adams.com.ec/categoria-producto/damas/"
-              target="_blank"
-              rel="noopener"
-            >
-              Damas
-            </a>
-            <a
-              class="category-pill"
-              href="https://www.adams.com.ec/categoria-producto/juvenil/"
-              target="_blank"
-              rel="noopener"
-            >
-              Juvenil
-            </a>
-            <a
-              class="category-pill"
-              href="https://www.adams.com.ec/categoria-producto/accesorios/"
-              target="_blank"
-              rel="noopener"
-            >
-              Accesorios
-            </a>
-            <a
-              class="category-pill"
-              href="https://www.adams.com.ec/promociones/"
-              target="_blank"
-              rel="noopener"
-            >
-              Promociones
-            </a>
-            <a
-              class="category-pill"
-              href="https://www.adams.com.ec/product-category/giftcard/"
-              target="_blank"
-              rel="noopener"
-            >
-              Gift Cards
-            </a>
+          <nav class="category-nav" aria-label="Atajos del panel administrativo">
+            <button type="button" class="category-pill is-highlight" data-target-tab="orderListPanel">
+              Órdenes registradas
+            </button>
+            <button type="button" class="category-pill" data-target-tab="orderKanbanPanel">
+              Kanban de órdenes
+            </button>
+            <button type="button" class="category-pill" data-target-tab="orderCreatePanel">
+              Crear orden
+            </button>
+            <button type="button" class="category-pill" data-target-tab="customersPanel">
+              Clientes
+            </button>
+            <button type="button" class="category-pill" data-target-tab="usersPanel">
+              Usuarios
+            </button>
+            <button type="button" class="category-pill" data-target-tab="auditLogPanel">
+              Bitácora
+            </button>
           </nav>
-          <span class="category-extra">Envíos a todo el Ecuador</span>
+          <span class="category-extra">Acceso administrativo</span>
         </div>
       </div>
     </header>
